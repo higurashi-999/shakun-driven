@@ -91,3 +91,17 @@ console.log("EVENTS TESTS OK");
     { relevance: 0, specificity: 0, consistency: 0, rationale: "イベントに触れていない" });
   assert.notEqual(res2.grade, "成功");
 }
+
+// --- M5.2: 「無視」のような放棄は静観扱い／対策のない布告はAI経路で失敗上限 ---
+{
+  const s = makeState();
+  const ev = getEvent("ev-labor-crackdown") || EVENTS.find((e) => e.category === "法改正・規制");
+  const res = resolveEvent(s, ev, { type: "respond", text: "無視" }, { "規律統制": 5, "福利厚生": 5 }, 0);
+  assert.equal(res.grade, "静観", JSON.stringify(res.lines));
+  const aiRes = resolveEvent(s, ev, { type: "respond", text: "注視していく" }, {}, 0,
+    { relevance: 1, specificity: 0, consistency: 0, rationale: "対策を講じていない" });
+  assert.equal(aiRes.grade, "失敗", JSON.stringify(aiRes.lines));
+  const okRes = resolveEvent(s, ev, { type: "respond", text: "労務管理を徹底する" }, { "規律統制": 3 }, 0,
+    { relevance: 2, specificity: 0, consistency: 0, rationale: "正面から向き合っている" });
+  assert.notEqual(okRes.grade, "失敗");
+}

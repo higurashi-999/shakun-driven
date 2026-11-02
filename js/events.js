@@ -222,9 +222,11 @@ const next = structuredClone(state);
 const lines = [`${event.title}`];
 let grade;
 let effects;
-if (action.type === "ignore") {
+const abandoned = action.type === "respond" && /無視|静観|放置|何もしない|対応しない|様子見|見守る/.test(action.text || "");
+if (action.type === "ignore" || abandoned) {
 grade = "静観";
 effects = scaleEffects(event.fail, 0.7);
+if (abandoned) lines.push(`対応の布告：${action.text}（実質的に静観として扱われました）`);
 lines.push("対応せず静観しました。");
 lines.push(event.failText);
 } else {
@@ -239,6 +241,7 @@ if (score >= 2) grade = "成功";
 else if (score >= 0.5) grade = "部分成功";
 else grade = "失敗";
 if (aiJudge.relevance === 0 && grade === "成功") grade = "部分成功"; // 的外れな布告は成功にしない
+if (aiJudge.relevance + aiJudge.specificity <= 1) grade = "失敗"; // 対策らしい内容がない布告は、台帳の備えだけでは部分成功にもならない
 } else {
 score = tagScore;
 if (action.text && action.text.trim()) score += 0.5;
@@ -290,7 +293,7 @@ return [
 "【現在の社訓台帳】",
 rules,
 "評価基準：",
-"- relevance（0〜2の整数）：対応がこのイベントに正面から向き合っているか。無関係なら0、部分的なら1、正面からなら2。",
+"- relevance（0〜2の整数）：対応がこのイベントに正面から向き合っているか。無関係なら0、部分的なら1、正面からなら2。対応を放棄する内容（無視・放置・何もしない・様子を見る等）は対策ではないので0。",
 "- specificity（0〜2の整数）：具体策があるか。精神論だけなら0、やや具体的なら1、担当・期限・数値など具体的手段があるなら2。",
 "- consistency（-1, 0, 1のいずれか）：台帳の社訓と矛盾する対応なら-1、無関係なら0、台帳の方針に沿う・活かす対応なら1。",
 '- rationale：判定理由を日本語で40字以内の一文。',
