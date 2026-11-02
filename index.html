@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>企業価値の最大化だけが評価される</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>健全な成長が複合評価される</small></button>
   </div>
-  <p class="footnote">試作版（M1：社訓台帳エンジン）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M2：週次シム）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -58,6 +58,7 @@
     <div><span class="label">第</span><span id="st-week">1</span><span class="label">週</span></div>
     <div><span class="label">資金</span><span id="st-funds">-</span><span class="label">万円</span></div>
     <div><span class="label">社員</span><span id="st-employees">0</span><span class="label">人</span></div>
+    <div><span class="label">評判</span><span id="st-rep">50</span></div>
   </header>
   <div class="office-body">
     <h3>社訓台帳</h3>
@@ -66,7 +67,14 @@
       <button id="btn-to-editor" class="primary">布告する（社訓を書く）</button>
       <button id="btn-to-ledger" class="secondary">台帳を見る</button>
     </div>
-    <p class="placeholder">週次シムはM2で入ります。今は社訓台帳を育てる段階です。</p>
+    <h3>社員</h3>
+    <div id="emp-list"></div>
+    <div class="row">
+      <button id="btn-advance" class="primary">週を進める</button>
+      <button id="btn-result" class="secondary hidden">結果を見る</button>
+    </div>
+    <h3>週報</h3>
+    <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
   </div>
   <div class="row">
     <button id="btn-back-from-office" class="secondary">タイトルへ</button>
@@ -156,6 +164,16 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.5"></script>
+<!-- フェーズ結果 -->
+<section id="screen-result" class="screen">
+  <h2 id="result-title">結果</h2>
+  <pre id="result-summary" class="preview"></pre>
+  <p class="note">試作Step 1はここまでです。本編（全28週・組織化期以降）は今後のマイルストーンで実装します。</p>
+  <div class="row">
+    <button id="btn-result-to-title" class="primary">タイトルへ</button>
+  </div>
+</section>
+
+<script type="module" src="js/app.js?v=20261102.6"></script>
 </body>
 </html>

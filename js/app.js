@@ -1,4 +1,4 @@
-// アプリ全体制御：画面遷移と配線（タイトル／設定／社長室／布告エディタ／台帳）。
+// アプリ全体制御：画面遷移と配線（タイトル／設定／社長室／布告エディタ／台帳／結果）。
 import {
 defaultState,
 loadState,
@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.5";
-import { testConnection, probeModels} from "./llm.js?v=20261102.5";
+} from "./store.js?v=20261102.6";
+import { testConnection, probeModels} from "./llm.js?v=20261102.6";
 import {
 validateRecord,
 registerRule,
@@ -17,10 +17,12 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.5";
-import { extractRule} from "./extract.js?v=20261102.5";
+} from "./ledger.js?v=20261102.6";
+import { extractRule} from "./extract.js?v=20261102.6";
+import { initialEmployees} from "./employees.js?v=20261102.6";
+import { simulateWeek, summarize} from "./sim.js?v=20261102.6";
 
-const screens = ["title", "settings", "office", "editor", "ledger"];
+const screens = ["title", "settings", "office", "editor", "ledger", "result"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 let draftConflicts = [];
@@ -35,6 +37,7 @@ if (name === "office") renderOffice();
 if (name === "settings") renderSettings();
 if (name === "editor") renderEditor();
 if (name === "ledger") renderLedger();
+if (name === "result") renderResult();
 }
 
 function requireState() {
@@ -44,14 +47,30 @@ show("title");
 return false;
 }
 
+// M2以前のセーブへの移行：社員と新フィールドを補う
+function migrateState() {
+if (!state) return;
+let changed = false;
+if (!state.employees || state.employees.length === 0) {
+state.employees = initialEmployees();
+changed = true;
+}
+if (state.reputation == null) { state.reputation = 50; changed = true;}
+if (!state.status) { state.status = "playing"; changed = true;}
+if (state.rngState == null) { state.rngState = state.seed; changed = true;}
+if (changed) saveState(state);
+}
+
 /* ---------- 社長室 ---------- */
 function renderOffice() {
 if (!state) return;
+migrateState();
 $("st-mode").textContent =
 state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": "-";
-$("st-week").textContent = String(state.week);
+$("st-week").textContent = String(Math.min(state.week, 6));
 $("st-funds").textContent = state.funds.toLocaleString("ja-JP");
 $("st-employees").textContent = String(state.employees.length);
+$("st-rep").textContent = String(state.reputation);
 const active = activeRules(state.ledger);
 const conflicts = active.filter((r) => (r.contradictions || []).length > 0).length;
 const agg = aggregateTags(state.ledger);
@@ -63,6 +82,62 @@ const topTags = Object.entries(agg)
 $("ledger-summary").textContent =
 `有効な社訓 ${active.length} 件／矛盾の記録 ${conflicts} 件／造語 ${state.glossary.length} 件` +
 (topTags.length? `／主な効果：${topTags.join("、")}`: "");
+const empList = $("emp-list");
+empList.innerHTML = "";
+for (const e of state.employees) {
+const card = document.createElement("div");
+card.className = "card";
+const name = document.createElement("strong");
+name.textContent = e.name;
+card.appendChild(name);
+const meta = document.createElement("p");
+meta.className = "note";
+meta.textContent = `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ${e.fatigue}・不満 ${e.dissatisfaction}・信仰度 ${e.faith}`;
+card.appendChild(meta);
+empList.appendChild(card);
+}
+if (state.lastReport) {
+$("week-report").textContent = state.lastReport.join("\n");
+}
+$("btn-advance").disabled = state.status!== "playing";
+$("btn-result").classList.toggle("hidden", state.status === "playing");
+}
+
+function onAdvance() {
+if (!requireState() || state.status!== "playing") return;
+migrateState();
+const ctx = {
+tags: aggregateTags(state.ledger),
+contradictions: activeRules(state.ledger).reduce((s, r) => s + (r.contradictions || []).length, 0),
+glossary: state.glossary.length,
+};
+const out = simulateWeek(state, ctx);
+state = out.state;
+state.lastReport = out.log;
+saveState(state);
+if (state.status!== "playing") {
+show("result");
+} else {
+renderOffice();
+}
+}
+
+/* ---------- 結果画面 ---------- */
+function renderResult() {
+if (!state) return;
+const s = summarize(state);
+$("result-title").textContent =
+s.status === "cleared"? "🎉 創業期クリア":
+s.status === "bankrupt"? "💸 倒産":
+s.status === "empty"? "💸 社員が全員退職": "結果";
+$("result-summary").textContent = [
+`経過：${s.weeks} 週`,
+`資金：${s.funds} 万円`,
+`社員：${s.employees} 人`,
+`平均信仰度：${s.avgFaith}／平均疲労：${s.avgFatigue}`,
+`評判：${s.reputation}／告発リスク蓄積：${s.risk}`,
+`有効な社訓：${s.rules} 件`,
+].join("\n");
 }
 
 /* ---------- 設定 ---------- */
@@ -229,7 +304,6 @@ if (confirm(`「${r.text}」を廃止しますか？廃止は正式な改訂手�
 abolishRule(state, r.id, "台帳ビューアから廃止");
 saveState(state);
 renderLedger();
-renderOffice();
 }
 });
 card.appendChild(btn);
@@ -254,7 +328,6 @@ btn.addEventListener("click", () => {
 state.glossary.splice(i, 1);
 saveState(state);
 renderLedger();
-renderOffice();
 });
 row.appendChild(btn);
 gl.appendChild(row);
@@ -271,7 +344,6 @@ saveState(state);
 $("gl-term").value = "";
 $("gl-def").value = "";
 renderLedger();
-renderOffice();
 }
 
 /* ---------- タイトル画面 ---------- */
@@ -342,6 +414,9 @@ if (requireState()) show("ledger");
 $("btn-back-from-office").addEventListener("click", () => show("title"));
 $("btn-back-from-editor").addEventListener("click", () => show("office"));
 $("btn-back-from-ledger").addEventListener("click", () => show("office"));
+$("btn-advance").addEventListener("click", onAdvance);
+$("btn-result").addEventListener("click", () => show("result"));
+$("btn-result-to-title").addEventListener("click", () => show("title"));
 
 /* ---------- エディタ・台帳の操作 ---------- */
 $("btn-extract").addEventListener("click", onExtract);
