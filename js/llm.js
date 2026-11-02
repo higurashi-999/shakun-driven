@@ -74,6 +74,9 @@ async function generateOnce(key, model, prompt, opts = {}) {
 }
 
 // モデル名からティアと世代を推定する（ルーティング用）
+// 音声・画像などの専用モデル（-tts等）はテキスト生成の役割から外す。
+// 同世代では派生版より「素の」モデル（名前が短い方）を優先する。
+const EXCLUDED_MODEL = /(tts|image|audio|video|embedding|robotics)/i;
 function tierOf(name) {
   const n = name.toLowerCase();
   if (n.includes("lite")) return "lite";
@@ -92,7 +95,8 @@ function sortTier(list) {
   return [...list].sort((a, b) => {
     const d = versionOf(b) - versionOf(a);
     if (d !== 0) return d;
-    return a < b ? 1 : -1;
+    if (a.length !== b.length) return a.length - b.length;
+    return a < b ? -1 : 1;
   });
 }
 
@@ -108,6 +112,7 @@ export async function probeModels() {
   }
   const tiers = { pro: [], flash: [], lite: [] };
   for (const name of gen) {
+    if (EXCLUDED_MODEL.test(name)) continue;
     const t = tierOf(name);
     if (tiers[t]) tiers[t].push(name);
   }
@@ -119,10 +124,12 @@ export async function probeModels() {
     if (proven.has(model)) return proven.get(model);
     incCallCount();
     try {
-      await generateOnce(key, model, "「OK」とだけ返してください。", {
+      const text = await generateOnce(key, model, "「OK」とだけ返してください。", {
         maxOutputTokens: 32,
         temperature: 0,
       });
+      // 音声専用モデルなどはHTTP 200でもテキストが返らないため、本文の有無で判定する
+      if (!String(text).trim()) throw new Error("テキストが返りませんでした");
       proven.set(model, true);
       attempts.push({ model, ok: true });
       return true;
@@ -195,7 +202,9 @@ export async function callLLM(role, prompt, opts = {}) {
   for (const model of order) {
     incCallCount();
     try {
-      return await generateOnce(key, model, prompt, opts);
+      const text = await generateOnce(key, model, prompt, opts);
+      if (!String(text).trim()) throw new Error("空の応答でした");
+      return text;
     } catch (e) {
       lastError = e;
     }
