@@ -8,7 +8,7 @@ import {
   setApiKey,
   getCallCount,
 } from "./store.js";
-import { testConnection } from "./llm.js";
+import { testConnection, probeModels } from "./llm.js";
 
 const screens = ["title", "settings", "office"];
 let state = loadState();
@@ -68,6 +68,21 @@ document.getElementById("btn-test-key").addEventListener("click", async () => {
   el.textContent = "接続テスト中…";
   const result = await testConnection();
   el.textContent = result.message;
+});
+document.getElementById("btn-probe").addEventListener("click", async () => {
+  const el = document.getElementById("test-result");
+  const btn = document.getElementById("btn-probe");
+  btn.disabled = true;
+  el.textContent = "生成テスト中…（数回だけ実際に呼び出します）";
+  try {
+    const result = await probeModels();
+    el.textContent = result.message;
+  } catch (e) {
+    el.textContent = `生成テストに失敗しました：${e.message}`;
+  } finally {
+    btn.disabled = false;
+    document.getElementById("call-count").textContent = String(getCallCount());
+  }
 });
 document.getElementById("btn-reset").addEventListener("click", () => {
   if (confirm("セーブデータと呼び出し回数を初期化します。APIキーは残ります。よろしいですか？")) {

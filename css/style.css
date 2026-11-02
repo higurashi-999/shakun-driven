@@ -54,6 +54,7 @@ button:active { transform: translateY(1px); }
   background: var(--panel);
 }
 .note { color: var(--sub); font-size: 13px; }
+#test-result { white-space: pre-line; }
 .row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
 .row button { flex: 1; }
 .status-bar {

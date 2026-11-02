@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>企業価値の最大化だけが評価される</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>健全な成長が複合評価される</small></button>
   </div>
-  <p class="footnote">試作版（M0：土台）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M0.5：土台＋LLM実測）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -39,6 +39,10 @@
     <button id="btn-save-key" class="primary">保存する</button>
     <button id="btn-test-key" class="secondary">接続テスト</button>
   </div>
+  <div class="row">
+    <button id="btn-probe" class="secondary">生成テスト（使えるモデルを実測）</button>
+  </div>
+  <p class="note">生成テストは候補モデルへ最小のリクエストを数回だけ送り、役割ごとに実際に生成できるモデルを確定します。キーを変えたらやり直してください。</p>
   <p id="test-result" class="note"></p>
   <p class="note">LLM呼び出し回数（累計）：<span id="call-count">0</span> 回</p>
   <div class="row">
