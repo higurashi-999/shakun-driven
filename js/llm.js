@@ -4,10 +4,16 @@
 // 「一覧に出る」ことと「実際に生成できる」ことを分けて、生成テストで実測する。
 // 役割別ルーティング：構造化＝Pro優先（不可ならFlash）／文章・会話＝Flash／軽処理＝Flash-Lite。
 // 失敗時は下位候補へ自動降格する（callLLM）。
-import { getApiKey, incCallCount } from "./store.js?v=20261102.3";
+import { getApiKey, incCallCount } from "./store.js?v=20261102.4";
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const ROUTING_KEY = "shakun-driven-llm-routing";
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// 混雑など一時的な失敗か（恒常的な割り当てなし=429とは区別する）
+function isTransient(message) {
+  return /HTTP 5\d\d|high demand|overloaded|temporar/i.test(String(message || ""));
+}
 
 async function listModels(key) {
   const res = await fetch(`${API_BASE}/models?pageSize=200`, {
@@ -122,22 +128,32 @@ export async function probeModels() {
   const attempts = [];
   async function tryModel(model) {
     if (proven.has(model)) return proven.get(model);
-    incCallCount();
-    try {
-      const text = await generateOnce(key, model, "「OK」とだけ返してください。", {
-        maxOutputTokens: 32,
-        temperature: 0,
-      });
-      // 音声専用モデルなどはHTTP 200でもテキストが返らないため、本文の有無で判定する
-      if (!String(text).trim()) throw new Error("テキストが返りませんでした");
-      proven.set(model, true);
-      attempts.push({ model, ok: true });
-      return true;
-    } catch (e) {
-      proven.set(model, false);
-      attempts.push({ model, ok: false, error: String(e.message || e) });
-      return false;
+    let lastError = null;
+    // 一時的な混雑（5xx）のときだけ、少し待ってもう1回試す
+    for (let i = 0; i < 2; i++) {
+      incCallCount();
+      try {
+        const text = await generateOnce(key, model, "「OK」とだけ返してください。", {
+          maxOutputTokens: 32,
+          temperature: 0,
+        });
+        // 音声専用モデルなどはHTTP 200でもテキストが返らないため、本文の有無で判定する
+        if (!String(text).trim()) throw new Error("テキストが返りませんでした");
+        proven.set(model, true);
+        attempts.push({ model, ok: true });
+        return true;
+      } catch (e) {
+        lastError = e;
+        if (i === 0 && isTransient(e.message)) {
+          await wait(1500);
+          continue;
+        }
+        break;
+      }
     }
+    proven.set(model, false);
+    attempts.push({ model, ok: false, error: String((lastError && lastError.message) || lastError) });
+    return false;
   }
   async function firstWorking(list, maxTry) {
     for (const model of list.slice(0, maxTry)) {
@@ -147,7 +163,7 @@ export async function probeModels() {
   }
 
   const proOk = await firstWorking(tiers.pro, 2);
-  const flashOk = await firstWorking(tiers.flash, 2);
+  const flashOk = await firstWorking(tiers.flash, 3);
   const liteOk = await firstWorking(tiers.lite, 1);
   const routing = {
     structure: proOk || flashOk || null,
@@ -167,6 +183,9 @@ export async function probeModels() {
     "― 試したモデル ―",
     ...attempts.map((a) => (a.ok ? `○ ${a.model}` : `× ${a.model}（${a.error}）`)),
   ];
+  if (!routing.structure && attempts.some((a) => !a.ok && isTransient(a.error))) {
+    lines.push("※Flash系が混雑（503）で未確定です。時間を置いて生成テストを再実行してください。");
+  }
   return { ok: true, message: lines.join("\n"), routing, attempts };
 }
 
@@ -200,13 +219,21 @@ export async function callLLM(role, prompt, opts = {}) {
   }
   let lastError = null;
   for (const model of order) {
-    incCallCount();
-    try {
-      const text = await generateOnce(key, model, prompt, opts);
-      if (!String(text).trim()) throw new Error("空の応答でした");
-      return text;
-    } catch (e) {
-      lastError = e;
+    // 一時的な混雑（5xx）のときだけ、少し待ってもう1回試す
+    for (let i = 0; i < 2; i++) {
+      incCallCount();
+      try {
+        const text = await generateOnce(key, model, prompt, opts);
+        if (!String(text).trim()) throw new Error("空の応答でした");
+        return text;
+      } catch (e) {
+        lastError = e;
+        if (i === 0 && isTransient(e.message)) {
+          await wait(1200);
+          continue;
+        }
+        break;
+      }
     }
   }
   throw lastError || new Error("生成に失敗しました");

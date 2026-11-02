@@ -7,8 +7,8 @@ import {
   getApiKey,
   setApiKey,
   getCallCount,
-} from "./store.js?v=20261102.3";
-import { testConnection, probeModels } from "./llm.js?v=20261102.3";
+} from "./store.js?v=20261102.4";
+import { testConnection, probeModels } from "./llm.js?v=20261102.4";
 
 const screens = ["title", "settings", "office"];
 let state = loadState();
