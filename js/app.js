@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.7";
-import { testConnection, probeModels} from "./llm.js?v=20261102.7";
+} from "./store.js?v=20261102.8";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.8";
 import {
 validateRecord,
 registerRule,
@@ -17,14 +17,16 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.7";
-import { extractRule} from "./extract.js?v=20261102.7";
-import { initialEmployees} from "./employees.js?v=20261102.7";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.7";
-import { drawEventId, getEvent, resolveEvent } from "./events.js?v=20261102.7";
-import { narrateWeek } from "./report.js?v=20261102.7";
+} from "./ledger.js?v=20261102.8";
+import { extractRule} from "./extract.js?v=20261102.8";
+import { initialEmployees} from "./employees.js?v=20261102.8";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.8";
+import { drawEventId, getEvent, resolveEvent } from "./events.js?v=20261102.8";
+import { narrateWeek } from "./report.js?v=20261102.8";
 
-const screens = ["title", "settings", "office", "editor", "ledger", "result", "event"];
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS } from "./scenes.js?v=20261102.8";
+
+const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 let draftConflicts = [];
@@ -41,6 +43,8 @@ if (name === "editor") renderEditor();
 if (name === "ledger") renderLedger();
 if (name === "result") renderResult();
 if (name === "event") renderEvent();
+if (name === "loan") renderLoan();
+if (name === "interview") renderInterview();
 }
 
 function requireState() {
@@ -110,6 +114,18 @@ $("report-raw-wrap").classList.add("hidden");
 }
 $("btn-advance").disabled = state.status!== "playing";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
+// 融資審査（第4週を過ぎても未実施なら社長室から受けられる）
+$("btn-loan").classList.toggle("hidden", !(state.status === "playing" && !state.loanDone && state.week >= 5));
+// 面談（退職相談）：対象がいて、今週まだ使っていなければ可
+const ivTarget = state.status === "playing" ? pickInterviewTarget(state) : null;
+const ivUsed = state.interviewUsedWeek === state.week;
+$("btn-interview").disabled = !ivTarget || ivUsed;
+$("btn-interview").textContent = ivTarget ? `面談する（${ivTarget.name}）` : "面談する（退職相談）";
+$("office-note").textContent =
+state.status!== "playing" ? "" :
+ivUsed ? "今週の面談は済んでいます。" :
+!ivTarget ? "今は退職相談を持ちかける社員はいません。" :
+`${ivTarget.name} の様子がおかしいようです（疲労 ${ivTarget.fatigue}／不満 ${ivTarget.dissatisfaction}／信仰度 ${ivTarget.faith}）。`;
 }
 
 function onAdvance() {
@@ -130,6 +146,11 @@ if (state.status!== "playing") {
 show("result");
 return;
 }
+// 第4週は初回融資審査（固定イベント）がランダムイベントに代わる
+if (processedWeek === 4 && !state.loanDone) {
+show("loan");
+return;
+}
 // 今週のイベント（前週に引いた pending があればそれ、なければ今引く）
 let eventId = state.pendingEventId;
 if (!eventId) eventId = drawEventId(state, processedWeek);
@@ -147,7 +168,10 @@ finishWeek();
 
 // 週の締め：次週イベントの抽選と兆し、週報ナレーション（LLM不通時は素材ログのまま）
 function finishWeek() {
-if (state.status === "playing" && state.week <= 5) {
+if (state.status === "playing" && state.week === 4 && !state.loanDone) {
+// 来週（第4週）は融資審査。ランダムイベントは引かず、兆しだけ出す
+state.lastReport = [...(state.lastReport || []), "🔮 来週は初回融資審査があります。台帳の整合性と実績が問われます。"];
+} else if (state.status === "playing" && state.week <= 5) {
 const nextId = drawEventId(state, state.week);
 state.pendingEventId = nextId;
 const ev = getEvent(nextId);
@@ -203,6 +227,68 @@ saveState(state);
 $("ev-result").textContent = res.lines.join("\n");
 $("ev-action-wrap").classList.add("hidden");
 $("ev-result-wrap").classList.remove("hidden");
+}
+
+/* ---------- 融資審査 ---------- */
+function renderLoan() {
+if (!state) return;
+if (state.loanDone && state.loanResult) {
+const r = state.loanResult;
+$("loan-result").textContent = `【融資審査】スコア ${r.score} ― ${r.grade}` + (r.amount > 0 ? `\n融資 ${r.amount} 万円（金利 ${r.rate}%）が実行済みです。` : "\n今回は融資が通りませんでした。");
+$("loan-intro").classList.add("hidden");
+$("loan-result-wrap").classList.remove("hidden");
+} else {
+$("loan-intro").classList.remove("hidden");
+$("loan-result-wrap").classList.add("hidden");
+}
+}
+
+function onLoanApply() {
+if (!state || state.loanDone) return;
+const res = judgeLoan(state, phaseTagsMap());
+state = res.state;
+state.lastReport = [...(state.lastReport || []), ...res.lines];
+saveState(state);
+$("loan-result").textContent = res.lines.join("\n");
+$("loan-intro").classList.add("hidden");
+$("loan-result-wrap").classList.remove("hidden");
+}
+
+/* ---------- 面談 ---------- */
+function renderInterview() {
+if (!state || !state.interview) return;
+const emp = state.employees.find((e) => e.id === state.interview.empId);
+if (!emp) return;
+const concern = CONCERNS[state.interview.concernKey];
+$("iv-who").textContent = `${emp.name} ― 疲労 ${emp.fatigue}／不満 ${emp.dissatisfaction}／信仰度 ${emp.faith}（訴え：${concern.label}）`;
+$("iv-opening").textContent = concern.opening;
+$("iv-response").value = "";
+$("iv-action-wrap").classList.remove("hidden");
+$("iv-result-wrap").classList.add("hidden");
+}
+
+async function onInterviewSend() {
+if (!state || !state.interview) return;
+const empId = state.interview.empId;
+const concernKey = state.interview.concernKey;
+const empBefore = state.employees.find((e) => e.id === empId);
+const text = $("iv-response").value;
+const res = judgeInterview(state, empId, text, phaseTagsMap());
+if (!res) return;
+state = res.state;
+state.lastReport = [...(state.lastReport || []), ...res.lines];
+saveState(state);
+$("iv-result").textContent = res.lines.join("\n");
+$("iv-reply").textContent = INTERVIEW_FALLBACK_LINES[res.outcome];
+$("iv-action-wrap").classList.add("hidden");
+$("iv-result-wrap").classList.remove("hidden");
+// 社員の台詞はLLMが書く（判定はコードで確定済み）。不通なら定型文のまま
+try {
+const reply = await callLLM("main", buildInterviewPrompt(state, empBefore, concernKey, text, res.outcome), { temperature: 0.8, maxOutputTokens: 200 });
+if (reply && $("screen-interview").classList.contains("active")) {
+$("iv-reply").textContent = String(reply).trim();
+}
+} catch { /* 定型文のまま */ }
 }
 
 /* ---------- 結果画面 ---------- */
@@ -503,6 +589,25 @@ $("btn-ev-ignore").addEventListener("click", () => onEventResolve({ type: "ignor
 $("btn-ev-done").addEventListener("click", () => {
 if (state && state.status!== "playing") show("result");
 else finishWeek();
+});
+$("btn-loan").addEventListener("click", () => show("loan"));
+$("btn-loan-apply").addEventListener("click", onLoanApply);
+$("btn-loan-done").addEventListener("click", () => {
+if (state && state.status!== "playing") show("result");
+else finishWeek();
+});
+$("btn-interview").addEventListener("click", () => {
+if (!requireState()) return;
+const target = pickInterviewTarget(state);
+if (!target) return;
+state.interview = { empId: target.id, concernKey: detectConcern(target) };
+saveState(state);
+show("interview");
+});
+$("btn-iv-send").addEventListener("click", onInterviewSend);
+$("btn-iv-done").addEventListener("click", () => {
+if (state && state.status!== "playing") show("result");
+else show("office");
 });
 $("btn-result").addEventListener("click", () => show("result"));
 $("btn-result-to-title").addEventListener("click", () => show("title"));

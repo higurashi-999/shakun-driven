@@ -23,6 +23,10 @@ export function defaultState() {
     currentEvent: null, // 対応中のイベント（M3）
     eventHistory: [], // 発生済みイベントID（M3）
     reportText: null, // 週報ナレーション（M3）
+    loanDone: false, // 初回融資審査を受けたか（M4）
+    loanResult: null, // 融資審査の結果（M4）
+    interviewUsedWeek: 0, // 面談を使った週（M4）
+    interview: null, // 進行中の面談 {empId, concernKey}（M4）
     seed,
   };
 }

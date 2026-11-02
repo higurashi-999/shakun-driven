@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>企業価値の最大化だけが評価される</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>健全な成長が複合評価される</small></button>
   </div>
-  <p class="footnote">試作版（M3：週報とイベント）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M4：面談と融資審査）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -73,6 +73,11 @@
       <button id="btn-advance" class="primary">週を進める</button>
       <button id="btn-result" class="secondary hidden">結果を見る</button>
     </div>
+    <div class="row">
+      <button id="btn-interview" class="secondary">面談する（退職相談）</button>
+      <button id="btn-loan" class="secondary hidden">融資審査を受ける</button>
+    </div>
+    <p id="office-note" class="note"></p>
     <h3>週報</h3>
     <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
     <details id="report-raw-wrap" class="hidden">
@@ -193,6 +198,47 @@
   </div>
 </section>
 
+<!-- 融資審査 -->
+<section id="screen-loan" class="screen">
+  <h2>融資審査（初回）</h2>
+  <p>銀行と公庫の担当者が、事業計画としての社訓台帳と、ここまでの実績を審査します。台帳の矛盾は、そのまま信用の傷になります。</p>
+  <div id="loan-intro">
+    <div class="row">
+      <button id="btn-loan-apply" class="primary">審査を受ける</button>
+    </div>
+  </div>
+  <div id="loan-result-wrap" class="hidden">
+    <pre id="loan-result" class="preview"></pre>
+    <div class="row">
+      <button id="btn-loan-done" class="primary">週報へ</button>
+    </div>
+  </div>
+</section>
+
+<!-- 面談 -->
+<section id="screen-interview" class="screen">
+  <h2>面談</h2>
+  <p id="iv-who" class="note"></p>
+  <div class="card"><p id="iv-opening"></p></div>
+  <div id="iv-action-wrap">
+    <label class="field">
+      <span>社長の返答（自由文）</span>
+      <textarea id="iv-response" rows="3" placeholder="本人の訴えに、どう答えますか"></textarea>
+    </label>
+    <div class="row">
+      <button id="btn-iv-send" class="primary">返答する</button>
+    </div>
+    <p class="note">判定は「訴えに触れているか」「台帳に裏付けがあるか」「言行が一致しているか」で決まります。</p>
+  </div>
+  <div id="iv-result-wrap" class="hidden">
+    <div class="card"><p id="iv-reply"></p></div>
+    <pre id="iv-result" class="preview"></pre>
+    <div class="row">
+      <button id="btn-iv-done" class="primary">社長室へ</button>
+    </div>
+  </div>
+</section>
+
 <!-- フェーズ結果 -->
 <section id="screen-result" class="screen">
   <h2 id="result-title">結果</h2>
@@ -203,6 +249,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.7"></script>
+<script type="module" src="js/app.js?v=20261102.8"></script>
 </body>
 </html>
