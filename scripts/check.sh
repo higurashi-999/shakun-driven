@@ -12,6 +12,10 @@ for f in js/*.js; do
   fi
 done
 
+if command -v node >/dev/null 2>&1 && [ -f tests/ledger.test.mjs ]; then
+  node tests/ledger.test.mjs || fail=1
+fi
+
 for ref in css/style.css js/app.js; do
   if [ ! -f "$ref" ]; then
     echo "参照切れ: $ref が存在しません"

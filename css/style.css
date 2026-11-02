@@ -65,3 +65,43 @@ button:active { transform: translateY(1px); }
 .status-bar .label { color: var(--sub); margin-right: 2px; }
 .office-body { margin-top: 20px; }
 .placeholder { color: var(--sub); }
+.hidden { display: none !important; }
+textarea, select {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  width: 100%;
+}
+.preview {
+  white-space: pre-line;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  margin: 8px 0;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 8px 0;
+}
+.badge {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent2);
+  color: #fff;
+}
+.badge.off { background: var(--sub); }
+.warn { color: var(--accent); font-size: 14px; }
+details { margin-top: 24px; }
+details summary { cursor: pointer; padding: 8px 0; }
+.grow { flex: 1; }
+button:disabled { opacity: 0.5; }

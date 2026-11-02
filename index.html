@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>企業価値の最大化だけが評価される</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>健全な成長が複合評価される</small></button>
   </div>
-  <p class="footnote">試作版（M0.6：土台＋LLM実測）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M1：社訓台帳エンジン）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -60,14 +60,102 @@
     <div><span class="label">社員</span><span id="st-employees">0</span><span class="label">人</span></div>
   </header>
   <div class="office-body">
-    <p class="placeholder">社長室はここに育ちます（M1以降：社訓台帳・社員・週報）。</p>
-    <p class="placeholder">現在のマイルストーン：M0 土台 ― 画面遷移と保存の確認用です。</p>
+    <h3>社訓台帳</h3>
+    <p id="ledger-summary" class="note"></p>
+    <div class="row">
+      <button id="btn-to-editor" class="primary">布告する（社訓を書く）</button>
+      <button id="btn-to-ledger" class="secondary">台帳を見る</button>
+    </div>
+    <p class="placeholder">週次シムはM2で入ります。今は社訓台帳を育てる段階です。</p>
   </div>
   <div class="row">
     <button id="btn-back-from-office" class="secondary">タイトルへ</button>
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.4"></script>
+<!-- 布告エディタ -->
+<section id="screen-editor" class="screen">
+  <h2>布告エディタ</h2>
+  <p class="note">社訓・就業規則・経営方針を自由文で書いてください。AIが構造化し、社員がどう動くかをプレビューします。</p>
+  <label class="field">
+    <span>社訓・ルール（自由文）</span>
+    <textarea id="ed-text" rows="3" placeholder="例：お客様は神様である／会議は15分まで"></textarea>
+  </label>
+  <div class="row">
+    <button id="btn-extract" class="primary">構造化してプレビュー</button>
+  </div>
+  <p id="ed-status" class="note"></p>
+  <div id="ed-preview-wrap" class="hidden">
+    <h3>構造化結果</h3>
+    <pre id="ed-fields" class="preview"></pre>
+    <h3>解釈プレビュー</h3>
+    <pre id="ed-preview" class="preview"></pre>
+    <div id="ed-conflicts"></div>
+    <div class="row">
+      <button id="btn-register" class="primary">この内容で台帳に登録</button>
+    </div>
+  </div>
+  <details id="manual-form">
+    <summary>手入力フォーム（AIを使わずに作る）</summary>
+    <label class="field"><span>原文</span><input id="m-text" type="text"></label>
+    <label class="field"><span>対象</span><input id="m-target" type="text" value="全員"></label>
+    <label class="field"><span>種別</span>
+      <select id="m-kind">
+        <option>理念</option><option selected>行動規範</option><option>数値ルール</option><option>採用方針</option><option>権限</option>
+      </select>
+    </label>
+    <label class="field"><span>方向</span>
+      <select id="m-direction">
+        <option selected>必須</option><option>禁止</option><option>推奨</option>
+      </select>
+    </label>
+    <label class="field"><span>条件（任意）</span><input id="m-condition" type="text"></label>
+    <label class="field"><span>例外（任意）</span><input id="m-exception" type="text"></label>
+    <div class="row">
+      <label class="field grow"><span>数値の指標名（任意）</span><input id="m-metric-label" type="text" placeholder="会議時間"></label>
+      <label class="field grow"><span>数値</span><input id="m-metric-value" type="number" inputmode="decimal"></label>
+      <label class="field grow"><span>単位</span><input id="m-metric-unit" type="text" placeholder="分"></label>
+    </div>
+    <label class="field"><span>効果タグ</span>
+      <select id="m-tag">
+        <option>労働強化</option><option>福利厚生</option><option>顧客絶対</option><option>コスト削減</option>
+        <option>挑戦奨励</option><option>規律統制</option><option>自由裁量</option><option>理念浸透</option>
+      </select>
+    </label>
+    <label class="field"><span>強度</span>
+      <select id="m-strength"><option value="1">1（弱い）</option><option value="2" selected>2（普通）</option><option value="3">3（絶対）</option></select>
+    </label>
+    <label class="field"><span>社員の動き（任意・解釈プレビュー用）</span><input id="m-behavior" type="text"></label>
+    <label class="field"><span>副作用（任意）</span><input id="m-side" type="text"></label>
+    <div class="row">
+      <button id="btn-manual-preview" class="secondary">手入力でプレビュー</button>
+    </div>
+  </details>
+  <div class="row">
+    <button id="btn-back-from-editor" class="secondary">社長室へもどる</button>
+  </div>
+</section>
+
+<!-- 台帳ビューア -->
+<section id="screen-ledger" class="screen">
+  <h2>社訓台帳</h2>
+  <h3>効果タグの集計</h3>
+  <pre id="lg-tags" class="preview"></pre>
+  <h3>登録ルール</h3>
+  <div id="lg-list"></div>
+  <h3>造語辞典</h3>
+  <p class="note">社内用語を定義すると結束が高まる一方、外部には通じなくなります。</p>
+  <label class="field"><span>用語</span><input id="gl-term" type="text"></label>
+    <label class="field"><span>定義</span><input id="gl-def" type="text"></label>
+  <div class="row">
+    <button id="btn-gl-add" class="secondary">辞典に登録</button>
+  </div>
+  <div id="gl-list"></div>
+  <div class="row">
+    <button id="btn-back-from-ledger" class="secondary">社長室へもどる</button>
+  </div>
+</section>
+
+<script type="module" src="js/app.js?v=20261102.5"></script>
 </body>
 </html>
