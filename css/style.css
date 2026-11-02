@@ -1,0 +1,66 @@
+:root {
+  --bg: #f6f3ec;
+  --panel: #ffffff;
+  --ink: #23201a;
+  --sub: #6f6a5e;
+  --accent: #b3543f;
+  --accent2: #2f5d50;
+  --line: #ddd5c4;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+.screen {
+  display: none;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  min-height: 100dvh;
+}
+.screen.active { display: block; }
+.title-block { text-align: center; margin: 64px 0 40px; }
+.title-block h1 { font-size: 40px; letter-spacing: 0.08em; margin: 0 0 8px; }
+.tagline { color: var(--sub); margin: 0; }
+.menu { display: grid; gap: 12px; }
+button {
+  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: center;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.secondary { background: var(--panel); }
+button.danger { color: var(--accent); border-color: var(--accent); background: var(--panel); }
+button:active { transform: translateY(1px); }
+.mode-select { margin-top: 24px; display: grid; gap: 12px; }
+.mode-select.hidden { display: none; }
+.mode-btn { text-align: left; }
+.mode-btn small { color: var(--sub); }
+.footnote { text-align: center; color: var(--sub); font-size: 12px; margin-top: 40px; }
+.field { display: grid; gap: 6px; margin: 16px 0 8px; }
+.field input {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.note { color: var(--sub); font-size: 13px; }
+.row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.row button { flex: 1; }
+.status-bar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-size: 14px;
+}
+.status-bar .label { color: var(--sub); margin-right: 2px; }
+.office-body { margin-top: 20px; }
+.placeholder { color: var(--sub); }
