@@ -3,19 +3,19 @@ const SAVE_KEY = "shakun-driven-save-v1";
 const APIKEY_KEY = "shakun-driven-apikey";
 const CALLS_KEY = "shakun-driven-llm-calls";
 
-export function defaultState() {
+export function defaultState(mode = null) {
   const seed = (Math.random() * 0xffffffff) >>> 0;
   return {
     version: 1,
     mode: null, // "black" | "white"
     phase: 1, // 創業期
     week: 1,
-    funds: 1000, // 万円
+    funds: mode === "black" ? 1200 : 1000, // 万円（ブラックは初期資金に余裕がある）
     employees: [], // M2で初期社員を投入
     ledger: [], // 社訓台帳（M1）
     glossary: [], // 造語辞典（M1）
     risk: 0, // 告発リスク蓄積
-    reputation: 50, // 評判 0〜100（M2）
+    reputation: mode === "black" ? 40 : 55, // 評判 0〜100（M2／初期値はモードで異なる）
     status: "playing", // playing | bankrupt | empty | cleared（M2）
     rngState: seed, // 決定的乱数の状態（M2）
     lastReport: null, // 直近の週報素材ログ（M2）

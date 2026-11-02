@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.8";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.8";
+} from "./store.js?v=20261102.9";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.9";
 import {
 validateRecord,
 registerRule,
@@ -17,14 +17,14 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.8";
-import { extractRule} from "./extract.js?v=20261102.8";
-import { initialEmployees} from "./employees.js?v=20261102.8";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.8";
-import { drawEventId, getEvent, resolveEvent } from "./events.js?v=20261102.8";
-import { narrateWeek } from "./report.js?v=20261102.8";
+} from "./ledger.js?v=20261102.9";
+import { extractRule} from "./extract.js?v=20261102.9";
+import { initialEmployees} from "./employees.js?v=20261102.9";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.9";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.9";
+import { narrateWeek } from "./report.js?v=20261102.9";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS } from "./scenes.js?v=20261102.8";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun } from "./scenes.js?v=20261102.9";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -100,7 +100,9 @@ name.textContent = e.name;
 card.appendChild(name);
 const meta = document.createElement("p");
 meta.className = "note";
-meta.textContent = `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ${e.fatigue}・不満 ${e.dissatisfaction}・信仰度 ${e.faith}`;
+meta.textContent = state.mode === "black"
+? `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ？？・不満 ？？・信仰度 ${e.faith}`
+: `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ${e.fatigue}・不満 ${e.dissatisfaction}・信仰度 ${e.faith}`;
 card.appendChild(meta);
 empList.appendChild(card);
 }
@@ -125,7 +127,9 @@ $("office-note").textContent =
 state.status!== "playing" ? "" :
 ivUsed ? "今週の面談は済んでいます。" :
 !ivTarget ? "今は退職相談を持ちかける社員はいません。" :
-`${ivTarget.name} の様子がおかしいようです（疲労 ${ivTarget.fatigue}／不満 ${ivTarget.dissatisfaction}／信仰度 ${ivTarget.faith}）。`;
+state.mode === "black"
+? `${ivTarget.name} の様子がおかしいようです。`
+: `${ivTarget.name} の様子がおかしいようです（疲労 ${ivTarget.fatigue}／不満 ${ivTarget.dissatisfaction}／信仰度 ${ivTarget.faith}）。`;
 }
 
 function onAdvance() {
@@ -215,11 +219,24 @@ $("ev-action-wrap").classList.remove("hidden");
 $("ev-result-wrap").classList.add("hidden");
 }
 
-function onEventResolve(action) {
+async function onEventResolve(action) {
 if (!state || !state.currentEvent) return;
 const ev = getEvent(state.currentEvent.id);
 if (!ev) return;
-const res = resolveEvent(state, ev, action, phaseTagsMap(), state.glossary.length);
+// 布告文がある場合は生成AIが内容を判定する（失敗時は従来のコード判定にフォールバック）
+let aiJudge = null;
+if (action.type === "respond" && action.text && action.text.trim()) {
+const btn = $("btn-ev-respond");
+btn.disabled = true;
+btn.textContent = "AIが判定中…";
+try {
+const raw = await callLLM("structure", buildEventJudgePrompt(state, ev, action.text), { json: true, temperature: 0.2, maxOutputTokens: 300 });
+aiJudge = parseEventJudgeResult(raw);
+} catch { aiJudge = null; }
+btn.disabled = false;
+btn.textContent = "この内容で対応する";
+}
+const res = resolveEvent(state, ev, action, phaseTagsMap(), state.glossary.length, aiJudge);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
 state.currentEvent = null;
@@ -260,7 +277,9 @@ if (!state || !state.interview) return;
 const emp = state.employees.find((e) => e.id === state.interview.empId);
 if (!emp) return;
 const concern = CONCERNS[state.interview.concernKey];
-$("iv-who").textContent = `${emp.name} ― 疲労 ${emp.fatigue}／不満 ${emp.dissatisfaction}／信仰度 ${emp.faith}（訴え：${concern.label}）`;
+$("iv-who").textContent = state.mode === "black"
+? `${emp.name} ― 状態の詳細は伏せられています（訴え：${concern.label}）`
+: `${emp.name} ― 疲労 ${emp.fatigue}／不満 ${emp.dissatisfaction}／信仰度 ${emp.faith}（訴え：${concern.label}）`;
 $("iv-opening").textContent = concern.opening;
 $("iv-response").value = "";
 $("iv-action-wrap").classList.remove("hidden");
@@ -306,6 +325,13 @@ $("result-summary").textContent = [
 `平均信仰度：${s.avgFaith}／平均疲労：${s.avgFatigue}`,
 `評判：${s.reputation}／告発リスク蓄積：${s.risk}`,
 `有効な社訓：${s.rules} 件`,
+"",
+...(() => {
+const ev2 = evaluateRun(state);
+return state.mode === "black"
+? [`企業価値：${ev2.value}`, `最終スコア：${ev2.score}（ブラック：企業価値のみで評価。疲労・不満・告発リスクはプレイ中非表示でした）`]
+: [`企業価値：${ev2.value}／健全度：${ev2.health}`, `最終スコア：${ev2.score}（ホワイト：企業価値 ×（0.7＋0.3×健全度））`];
+})(),
 ].join("\n");
 }
 
@@ -521,8 +547,7 @@ $("mode-select").classList.remove("hidden");
 });
 document.querySelectorAll(".mode-btn").forEach((btn) => {
 btn.addEventListener("click", () => {
-state = defaultState();
-state.mode = btn.dataset.mode;
+state = defaultState(btn.dataset.mode);
 saveState(state);
 show("office");
 });

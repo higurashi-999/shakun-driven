@@ -1,6 +1,6 @@
 // イベントの抽選・判定テスト（node tests/events.test.mjs）
 import assert from "node:assert/strict";
-import { EVENTS, drawEventId, getEvent, resolveEvent } from "../js/events.js";
+import { EVENTS, drawEventId, getEvent, resolveEvent, parseEventJudgeResult } from "../js/events.js";
 import { initialEmployees } from "../js/employees.js";
 
 function makeState(overrides = {}) {
@@ -66,3 +66,28 @@ function makeState(overrides = {}) {
 }
 
 console.log("EVENTS TESTS OK");
+
+// --- M5: AI判定のパースと適用 ---
+{
+  const parsed = parseEventJudgeResult('{"relevance":2,"specificity":1,"consistency":-1,"rationale":"具体的だが台帳と矛盾"}');
+  assert.deepEqual(parsed, { relevance: 2, specificity: 1, consistency: -1, rationale: "具体的だが台帳と矛盾" });
+  assert.equal(parseEventJudgeResult("判定できません"), null);
+  assert.equal(parseEventJudgeResult('{"relevance":"x"}'), null);
+  const clamped = parseEventJudgeResult('{"relevance":9,"specificity":-3,"consistency":5,"rationale":"r"}');
+  assert.equal(clamped.relevance, 2);
+  assert.equal(clamped.specificity, 0);
+  assert.equal(clamped.consistency, 1);
+}
+{
+  // AI判定あり：関連性が高く具体的な布告は、タグがなくても成功する
+  const s = makeState();
+  const ev = getEvent("ev-server-down");
+  const res = resolveEvent(s, ev, { type: "respond", text: "CTOを責任者に復旧手順を共有し、30分ごとに全社へ進捗を出す" }, {}, 0,
+    { relevance: 2, specificity: 2, consistency: 0, rationale: "正面から具体的に向き合っている" });
+  assert.equal(res.grade, "成功");
+  assert.ok(res.lines.some((l) => l.startsWith("AI判定：")));
+  // 的外れな布告はタグが強くても成功にならない
+  const res2 = resolveEvent(s, ev, { type: "respond", text: "頑張ります" }, { "規律統制": 5 }, 0,
+    { relevance: 0, specificity: 0, consistency: 0, rationale: "イベントに触れていない" });
+  assert.notEqual(res2.grade, "成功");
+}

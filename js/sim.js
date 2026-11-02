@@ -93,7 +93,7 @@ export function simulateWeek(state, ctx) {
 
   /* 費用 */
   const baseCost = PARAMS.salaryPerWeek * emps.length + PARAMS.fixedCost;
-  let cost = baseCost + 4 * eff("福利厚生") + 2 * eff("顧客絶対") - 5 * eff("コスト削減");
+  let cost = baseCost + 3 * eff("福利厚生") + 2 * eff("顧客絶対") - 5 * eff("コスト削減");
   cost = Math.max(cost, baseCost * 0.4);
   cost = round1(cost);
 
@@ -105,11 +105,11 @@ export function simulateWeek(state, ctx) {
   const contradictionPenalty = (ctx.contradictions || 0) * 6;
   for (const e of emps) {
     const staminaFactor = 1.25 - e.stamina * 0.05;
-    let fatigueDelta = 6 * staminaFactor + 5 * eff("労働強化") * staminaFactor - 4 * eff("福利厚生") - 2;
+    let fatigueDelta = 6 * staminaFactor + 1.2 * eff("労働強化") * staminaFactor - 4 * eff("福利厚生") - 2;
     e.fatigue = clamp(round1(e.fatigue + fatigueDelta), 0, 100);
 
     let dissDelta =
-      (e.fatigue - 45) * 0.08 + 2 * eff("労働強化") + 1.5 * eff("コスト削減") - 3 * eff("福利厚生") - 0.5 * eff("自由裁量");
+      (e.fatigue - 45) * 0.08 + 1.2 * eff("労働強化") + 1.5 * eff("コスト削減") - 3 * eff("福利厚生") - 0.5 * eff("自由裁量");
     if (dissDelta > 0) dissDelta *= 1.25 - e.mental * 0.05;
     e.dissatisfaction = clamp(round1(e.dissatisfaction + dissDelta), 0, 100);
 
@@ -142,7 +142,7 @@ export function simulateWeek(state, ctx) {
       next.risk = clamp(round1(next.risk * 0.5), 0, 100);
       log.push("⚠ 内部通報がありました：是正対応で50万円を支出し、評判が下がりました。");
     } else {
-      log.push(`⚠ 告発リスクが高まっています（蓄積 ${next.risk}）。社訓の改訂で是正できます。`);
+      if (next.mode !== "black") log.push(`⚠ 告発リスクが高まっています（蓄積 ${next.risk}）。社訓の改訂で是正できます。`); // ブラックでは非表示
     }
   }
 

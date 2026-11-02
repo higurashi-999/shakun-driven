@@ -95,15 +95,17 @@ function addRule(state, overrides) {
   assert.equal(state.status, "bankrupt", JSON.stringify(summarize(state)));
 }
 
-// 労働強化の盛りすぎは疲労を蓄積させ、退職か敗北に至る
+// 労働強化の盛りすぎは、創業期のうちは資金と引き換えに疲労と告発リスクを蓄積させる
+// （退職・敗北への本格的な転落は組織化期以降の反転で起きる、という SPEC の反転カーブ）
 {
   const s = makeState();
   addRule(s, { text: "残業は美徳である", tag: "労働強化", strength: 3 });
   addRule(s, { text: "休む者は去れ", tag: "労働強化", strength: 3 });
   const { state } = runWeeks(s, 6);
+  const sum = summarize(state);
   assert.ok(
-    state.status !== "cleared" || state.employees.length < 5,
-    `過重労働の代償が出るはず: ${JSON.stringify(summarize(state))}`
+    sum.avgFatigue >= 60 && sum.risk >= 20,
+    `過重労働の代償（疲労・リスクの蓄積）が出るはず: ${JSON.stringify(sum)}`
   );
   const avgFatigue = state.employees.length
     ? state.employees.reduce((sum, e) => sum + e.fatigue, 0) / state.employees.length

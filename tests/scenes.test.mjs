@@ -1,6 +1,6 @@
 // 融資審査と面談の判定テスト（node tests/scenes.test.mjs）
 import assert from "node:assert/strict";
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern } from "../js/scenes.js";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun } from "../js/scenes.js";
 import { initialEmployees } from "../js/employees.js";
 import { validateRecord, registerRule, aggregateTags } from "../js/ledger.js";
 
@@ -92,3 +92,32 @@ function phaseTags(state) {
 }
 
 console.log("SCENES TESTS OK");
+
+// --- M5: 融資審査のモード差（同じ矛盾でもブラックは数字で通る） ---
+{
+  const build = (mode) => {
+    const s = makeState({ mode, funds: 900, risk: 0, reputation: 50 });
+    const r1 = addRule(s, { text: "残業は必須", tag: "労働強化", strength: 3 });
+    addRule(s, { text: "残業は禁止", tag: "福利厚生", strength: 3 }, [r1.id]);
+    return s;
+  };
+  const w = judgeLoan(build("white"), {});
+  const b = judgeLoan(build("black"), {});
+  assert.ok(b.result.score > w.result.score, `black ${b.result.score} vs white ${w.result.score}`);
+}
+
+// --- M5: 最終評価（ブラックは企業価値のみ、ホワイトは健全度で割り引かれる） ---
+{
+  const healthy = makeState({ mode: "white", funds: 1000 });
+  const evH = evaluateRun(healthy);
+  const tired = makeState({ mode: "white", funds: 1000 });
+  for (const e of tired.employees) { e.faith = 20; e.dissatisfaction = 90; }
+  tired.risk = 60;
+  const evT = evaluateRun(tired);
+  assert.equal(evH.value, evT.value); // 企業価値は同じ
+  assert.ok(evH.score > evT.score); // でもホワイトのスコアは健全度で差がつく
+  const blackSame = makeState({ mode: "black", funds: 1000 });
+  for (const e of blackSame.employees) { e.faith = 20; e.dissatisfaction = 90; }
+  blackSame.risk = 60;
+  assert.equal(evaluateRun(blackSame).score, evT.value); // ブラックは健全度を無視
+}

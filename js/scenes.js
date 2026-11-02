@@ -20,17 +20,21 @@ const avgFaith = state.employees.length
 if (active.length >= 3) add(`社訓が ${active.length} 件そろい、経営方針が形になっている`, 8);
 else if (active.length >= 1) add("社訓はあるが、まだ方針として薄い", 2);
 else add("社訓が1件もなく、経営方針が見えない", -12);
-if (contradictionPairs > 0) add(`台帳に矛盾の記録が ${contradictionPairs} 件ある`, -15 * contradictionPairs);
+const contraPenalty = state.mode === "black" ? 8 : 15; // ブラック：銀行は数字を見て目をつぶる
+if (contradictionPairs > 0) add(`台帳に矛盾の記録が ${contradictionPairs} 件ある`, -contraPenalty * contradictionPairs);
 else if (active.length >= 1) add("台帳に矛盾の記録がない", 6);
 const discipline = tags["規律統制"] || 0;
 if (discipline >= 1.5) add("規律・管理の社訓が効いており、数字の管理が期待できる", 8);
 const costCut = tags["コスト削減"] || 0;
 if (costCut >= 1.5) add("コスト意識の高い社訓がある", 5);
-if (state.funds >= 800) add(`資金 ${state.funds} 万円と runway に余裕がある`, 10);
-else if (state.funds >= 500) add(`資金 ${state.funds} 万円を維持している`, 5);
-else if (state.funds < 300) add(`資金が ${state.funds} 万円まで減っており、資金繰りが厳しい`, -10);
+const fundsPts = state.mode === "black" ? [15, 8, -15] : [10, 5, -10];
+if (state.funds >= 800) add(`資金 ${state.funds} 万円と runway に余裕がある`, fundsPts[0]);
+else if (state.funds >= 500) add(`資金 ${state.funds} 万円を維持している`, fundsPts[1]);
+else if (state.funds < 300) add(`資金が ${state.funds} 万円まで減っており、資金繰りが厳しい`, fundsPts[2]);
+if (state.mode !== "black") {
 if (avgFaith >= 55) add("社員の信仰度（結束）が高く、定着が見込める", 8);
 else if (avgFaith < 45 && state.employees.length) add("社員の信仰度が低く、離職が懸念される", -8);
+}
 if (state.employees.length >= 6) add(`社員 ${state.employees.length} 人へ成長している`, 5);
 if (state.reputation >= 55) add("対外的な評判が良い", 5);
 else if (state.reputation < 40) add("対外的な評判が低い", -5);
@@ -44,6 +48,7 @@ else { grade = "不合格"; amount = 0; rate = null;}
 
 const next = structuredClone(state);
 const lines = [`スコア ${score} ― ${grade}`];
+lines.push(state.mode === "black" ? "※ ブラックモードの審査：数字重視（矛盾の減点は小さめ、社員の結束は見ない）" : "※ ホワイトモードの審査：数字と人の両方を見る");
 for (const f of factors) lines.push(`${f.points >= 0? "＋": "－"} ${f.label}（${f.points >= 0? "+": ""}${f.points}）`);
 if (amount > 0) {
 next.funds = Math.round((next.funds + amount) * 10) / 10;
@@ -187,3 +192,14 @@ stay: "……分かりました。もう少し、ここで頑張ってみます�
 watch: "……今日は結論を出せません。もう少し考えさせてください。",
 quit: "……すみません。決めました。辞めさせてください。",
 };
+
+// 最終評価：企業価値と最終スコア（モードで評価式が変わる）
+export function evaluateRun(state) {
+const n = state.employees.length;
+const avgFaith = n ? state.employees.reduce((s2, e) => s2 + e.faith, 0) / n : 0;
+const avgDiss = n ? state.employees.reduce((s2, e) => s2 + e.dissatisfaction, 0) / n : 100;
+const value = Math.round(state.funds + n * 100 + state.reputation * 5);
+const health = Math.round(((avgFaith + (100 - avgDiss) + (100 - state.risk)) / 3) * 10) / 10;
+const score = state.mode === "black" ? value : Math.round(value * (0.7 + 0.3 * (health / 100)));
+return { value, health, score };
+}

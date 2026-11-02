@@ -187,7 +187,16 @@ let t = s;
 t = Math.imul(t ^ (t >>> 15), t | 1);
 t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
 const r = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-return list[Math.floor(r * list.length)].id;
+// モードでイベントの重みが変わる（ブラック：不祥事・炎上寄り／ホワイト：人材・法改正寄り）
+const weightOf = (e) => {
+if (state.mode === "black" && (e.category === "社内事故・不祥事" || e.category === "メディア・評判")) return 1.6;
+if (state.mode === "white" && (e.category === "人材市場" || e.category === "法改正・規制")) return 1.3;
+return 1;
+};
+const total = list.reduce((sum, e) => sum + weightOf(e), 0);
+let x = r * total;
+for (const e of list) { x -= weightOf(e); if (x < 0) return e.id; }
+return list[list.length - 1].id;
 }
 
 export function getEvent(id) {
@@ -208,7 +217,7 @@ return out;
 // 対応の判定と効果適用（純粋関数）。
 // action: {type:"respond", text} | {type:"ignore"}
 // tags: フェーズ調整済みの実効タグ（{タグ名: 実効値} の単純マップ）
-export function resolveEvent(state, event, action, tags, glossaryCount = 0) {
+export function resolveEvent(state, event, action, tags, glossaryCount = 0, aiJudge = null) {
 const next = structuredClone(state);
 const lines = [`${event.title}`];
 let grade;
@@ -219,16 +228,28 @@ effects = scaleEffects(event.fail, 0.7);
 lines.push("対応せず静観しました。");
 lines.push(event.failText);
 } else {
-let score = 0;
-for (const t of event.goodTags) score += tags[t] || 0;
-for (const t of event.badTags) score -= tags[t] || 0;
+let tagScore = 0;
+for (const t of event.goodTags) tagScore += tags[t] || 0;
+for (const t of event.badTags) tagScore -= tags[t] || 0;
+let score;
+if (aiJudge) {
+// 生成AIの判定：関連性（0-2）＋具体性（0-2の半分）＋台帳整合性（+0.5/0/-1）に、台帳タグの備えを加える
+score = tagScore + aiJudge.relevance + aiJudge.specificity * 0.5 + (aiJudge.consistency > 0 ? 0.5 : aiJudge.consistency < 0 ? -1 : 0);
+if (score >= 2) grade = "成功";
+else if (score >= 0.5) grade = "部分成功";
+else grade = "失敗";
+if (aiJudge.relevance === 0 && grade === "成功") grade = "部分成功"; // 的外れな布告は成功にしない
+} else {
+score = tagScore;
 if (action.text && action.text.trim()) score += 0.5;
 if (action.text && (event.responseKeywords || []).some((k) => action.text.includes(k))) score += 1.5;
 if (score >= 2) grade = "成功";
 else if (score >= 0.5) grade = "部分成功";
 else grade = "失敗";
+}
 effects = grade === "成功"? {...event.success}: grade === "部分成功"? mixEffects(event.success, event.fail): {...event.fail};
 lines.push(`対応の布告：${action.text || "（文面なし）"}`);
+if (aiJudge) lines.push(`AI判定：${aiJudge.rationale}（関連性 ${aiJudge.relevance}/2、具体性 ${aiJudge.specificity}/2、台帳整合性 ${aiJudge.consistency > 0 ? "あり" : aiJudge.consistency < 0 ? "矛盾あり" : "中立"}、スコア ${Math.round(score * 10) / 10}）`);
 lines.push(grade === "失敗"? event.failText: event.successText);
 if (grade === "部分成功") lines.push("ただし備えが十分ではなく、効果は限定的でした。");
 }
@@ -250,11 +271,48 @@ if (effects.funds) summary.push(`資金${effects.funds > 0? "+": ""}${effects.fu
 if (effects.reputation) summary.push(`評判${effects.reputation > 0? "+": ""}${effects.reputation}`);
 if (effects.fatigueAll) summary.push(`全員の疲労${effects.fatigueAll > 0? "+": ""}${effects.fatigueAll}`);
 if (effects.faithAll) summary.push(`全員の信仰度${effects.faithAll > 0? "+": ""}${effects.faithAll}`);
-if (effects.risk) summary.push(`告発リスク${effects.risk > 0? "+": ""}${effects.risk}`);
+if (effects.risk && state.mode !== "black") summary.push(`告発リスク${effects.risk > 0? "+": ""}${effects.risk}`); // ブラックでは非表示
 lines.push(`結果：${grade}${summary.length? `（${summary.join("、")}）`: ""}`);
 if (next.funds < 0 && next.status === "playing") {
 next.status = "bankrupt";
 lines.push("💸 イベント対応の結果、資金が枯渇しました。会社は倒産です。");
 }
 return { state: next, lines, grade, effects};
+}
+
+// 生成AIによる布告判定のプロンプト。判定材料（イベント・布告文・台帳）を渡し、JSONだけを返させる。
+export function buildEventJudgePrompt(state, event, responseText) {
+const rules = (state.ledger || []).filter((r) => r.status === "active").map((r) => `・${r.text}（タグ：${r.tag}）`).join("\n") || "（社訓なし）";
+return [
+"あなたは会社経営ゲームの判定AIです。発生したイベントへの社長の対応（布告）を評価し、JSONだけを出力してください。説明文は不要です。",
+`【イベント】${event.title}：${event.text}`,
+`【社長の対応（布告）】${responseText}`,
+"【現在の社訓台帳】",
+rules,
+"評価基準：",
+"- relevance（0〜2の整数）：対応がこのイベントに正面から向き合っているか。無関係なら0、部分的なら1、正面からなら2。",
+"- specificity（0〜2の整数）：具体策があるか。精神論だけなら0、やや具体的なら1、担当・期限・数値など具体的手段があるなら2。",
+"- consistency（-1, 0, 1のいずれか）：台帳の社訓と矛盾する対応なら-1、無関係なら0、台帳の方針に沿う・活かす対応なら1。",
+'- rationale：判定理由を日本語で40字以内の一文。',
+'出力形式：{"relevance":2,"specificity":1,"consistency":0,"rationale":"理由"}',
+].join("\n");
+}
+
+// AI判定JSONの検証（オブジェクトでも文字列でも受ける）。不正なら null（呼び出し側は従来判定にフォールバック）。
+export function parseEventJudgeResult(raw) {
+let obj = raw;
+if (typeof raw === "string") {
+const m = raw.match(/\{[\s\S]*\}/);
+if (!m) return null;
+try { obj = JSON.parse(m[0]); } catch { return null; }
+}
+if (!obj || typeof obj !== "object") return null;
+const rel = Number(obj.relevance), spec = Number(obj.specificity), cons = Number(obj.consistency);
+if (![rel, spec, cons].every(Number.isFinite)) return null;
+return {
+relevance: Math.min(2, Math.max(0, Math.round(rel))),
+specificity: Math.min(2, Math.max(0, Math.round(spec))),
+consistency: cons > 0 ? 1 : cons < 0 ? -1 : 0,
+rationale: String(obj.rationale || "AI判定").slice(0, 80),
+};
 }
