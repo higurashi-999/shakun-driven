@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.12";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.12";
+} from "./store.js?v=20261102.13";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.13";
 import {
 validateRecord,
 registerRule,
@@ -17,14 +17,15 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.12";
-import { extractRule} from "./extract.js?v=20261102.12";
-import { initialEmployees} from "./employees.js?v=20261102.12";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.12";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.12";
-import { narrateWeek } from "./report.js?v=20261102.12";
+} from "./ledger.js?v=20261102.13";
+import { extractRule} from "./extract.js?v=20261102.13";
+import { initialEmployees} from "./employees.js?v=20261102.13";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.13";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.13";
+import { narrateWeek } from "./report.js?v=20261102.13";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.12";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.13";
+import { TITLE_ART } from "./assets.js?v=20261102.13";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -737,6 +738,7 @@ $("btn-manual-preview").addEventListener("click", onManualPreview);
 $("btn-register").addEventListener("click", onRegister);
 $("btn-gl-add").addEventListener("click", onGlossaryAdd);
 
+$("title-art").src = TITLE_ART;
 show("title");
 $("btn-guide-close").addEventListener("click", () => {
 if (!state) return;
