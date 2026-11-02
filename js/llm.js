@@ -4,7 +4,7 @@
 // 「一覧に出る」ことと「実際に生成できる」ことを分けて、生成テストで実測する。
 // 役割別ルーティング：構造化＝Pro優先（不可ならFlash）／文章・会話＝Flash／軽処理＝Flash-Lite。
 // 失敗時は下位候補へ自動降格する（callLLM）。
-import { getApiKey, incCallCount } from "./store.js?v=20261102.9";
+import { getApiKey, incCallCount } from "./store.js?v=20261102.10";
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const ROUTING_KEY = "shakun-driven-llm-routing";
@@ -163,11 +163,11 @@ export async function probeModels() {
   }
 
   const proOk = await firstWorking(tiers.pro, 2);
-  const flashOk = await firstWorking(tiers.flash, 3);
-  const liteOk = await firstWorking(tiers.lite, 1);
+  const flashOk = await firstWorking(tiers.flash, 5) // 上限はモデル別なので、候補を広めに試す;
+  const liteOk = await firstWorking(tiers.lite, 2);
   const routing = {
-    structure: proOk || flashOk || null,
-    main: flashOk || proOk || null,
+    structure: proOk || flashOk || liteOk || null,
+    main: flashOk || proOk || liteOk || null,
     lite: liteOk || flashOk || proOk || null,
     probedAt: new Date().toISOString(),
   };
@@ -185,6 +185,9 @@ export async function probeModels() {
   ];
   if (!routing.structure && attempts.some((a) => !a.ok && isTransient(a.error))) {
     lines.push("※Flash系が混雑（503）で未確定です。時間を置いて生成テストを再実行してください。");
+  }
+  if (attempts.some((a) => !a.ok && /429|quota/i.test(a.error || ""))) {
+    lines.push("※「HTTP 429」は無料枠の上限到達です。上限はモデルごとに1日あたりで数えられ、太平洋時間の深夜（日本時間では夕方頃）にリセットされる目安です。上限に達したモデルは使えませんが、残りのモデルへ自動で降格して動作します。");
   }
   return { ok: true, message: lines.join("\n"), routing, attempts };
 }
