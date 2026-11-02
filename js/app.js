@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.6";
-import { testConnection, probeModels} from "./llm.js?v=20261102.6";
+} from "./store.js?v=20261102.7";
+import { testConnection, probeModels} from "./llm.js?v=20261102.7";
 import {
 validateRecord,
 registerRule,
@@ -17,12 +17,14 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.6";
-import { extractRule} from "./extract.js?v=20261102.6";
-import { initialEmployees} from "./employees.js?v=20261102.6";
-import { simulateWeek, summarize} from "./sim.js?v=20261102.6";
+} from "./ledger.js?v=20261102.7";
+import { extractRule} from "./extract.js?v=20261102.7";
+import { initialEmployees} from "./employees.js?v=20261102.7";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.7";
+import { drawEventId, getEvent, resolveEvent } from "./events.js?v=20261102.7";
+import { narrateWeek } from "./report.js?v=20261102.7";
 
-const screens = ["title", "settings", "office", "editor", "ledger", "result"];
+const screens = ["title", "settings", "office", "editor", "ledger", "result", "event"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 let draftConflicts = [];
@@ -38,6 +40,7 @@ if (name === "settings") renderSettings();
 if (name === "editor") renderEditor();
 if (name === "ledger") renderLedger();
 if (name === "result") renderResult();
+if (name === "event") renderEvent();
 }
 
 function requireState() {
@@ -58,6 +61,7 @@ changed = true;
 if (state.reputation == null) { state.reputation = 50; changed = true;}
 if (!state.status) { state.status = "playing"; changed = true;}
 if (state.rngState == null) { state.rngState = state.seed; changed = true;}
+if (!Array.isArray(state.eventHistory)) { state.eventHistory = []; changed = true;}
 if (changed) saveState(state);
 }
 
@@ -96,8 +100,13 @@ meta.textContent = `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}
 card.appendChild(meta);
 empList.appendChild(card);
 }
-if (state.lastReport) {
+if (state.reportText) {
+$("week-report").textContent = state.reportText;
+$("week-report-raw").textContent = (state.lastReport || []).join("\n");
+$("report-raw-wrap").classList.remove("hidden");
+} else if (state.lastReport) {
 $("week-report").textContent = state.lastReport.join("\n");
+$("report-raw-wrap").classList.add("hidden");
 }
 $("btn-advance").disabled = state.status!== "playing";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
@@ -106,6 +115,7 @@ $("btn-result").classList.toggle("hidden", state.status === "playing");
 function onAdvance() {
 if (!requireState() || state.status!== "playing") return;
 migrateState();
+const processedWeek = state.week;
 const ctx = {
 tags: aggregateTags(state.ledger),
 contradictions: activeRules(state.ledger).reduce((s, r) => s + (r.contradictions || []).length, 0),
@@ -114,12 +124,85 @@ glossary: state.glossary.length,
 const out = simulateWeek(state, ctx);
 state = out.state;
 state.lastReport = out.log;
+state.reportText = null;
 saveState(state);
 if (state.status!== "playing") {
 show("result");
+return;
+}
+// 今週のイベント（前週に引いた pending があればそれ、なければ今引く）
+let eventId = state.pendingEventId;
+if (!eventId) eventId = drawEventId(state, processedWeek);
+state.pendingEventId = null;
+const ev = getEvent(eventId);
+if (ev) {
+state.currentEvent = { id: ev.id};
+state.eventHistory = [...(state.eventHistory || []), ev.id];
+saveState(state);
+show("event");
 } else {
+finishWeek();
+}
+}
+
+// 週の締め：次週イベントの抽選と兆し、週報ナレーション（LLM不通時は素材ログのまま）
+function finishWeek() {
+if (state.status === "playing" && state.week <= 5) {
+const nextId = drawEventId(state, state.week);
+state.pendingEventId = nextId;
+const ev = getEvent(nextId);
+if (ev && ev.omen) {
+state.lastReport = [...(state.lastReport || []), `🔮 兆し：${ev.omen}`];
+}
+}
+saveState(state);
+show("office");
+const weekNo = state.week - 1;
+const logSnapshot = state.lastReport;
+narrateWeek(state, logSnapshot, weekNo).then((text) => {
+if (text && state.lastReport === logSnapshot) {
+state.reportText = text;
+saveState(state);
 renderOffice();
 }
+}).catch(() => { /* LLM不通時は素材ログ表示のまま */ });
+}
+
+// フェーズ調整済みの実効タグ（単純マップ）— イベント判定用
+function phaseTagsMap() {
+const agg = aggregateTags(state.ledger);
+const mods = PHASE_TAG_MODIFIERS[state.phase] || {};
+const out = {};
+for (const [t, v] of Object.entries(agg)) out[t] = v.effective * (mods[t] ?? 1);
+return out;
+}
+
+/* ---------- イベント画面 ---------- */
+function renderEvent() {
+if (!state || !state.currentEvent) return;
+const ev = getEvent(state.currentEvent.id);
+if (!ev) return;
+$("ev-title").textContent = ev.title;
+$("ev-category").textContent = `カテゴリ：${ev.category}`;
+$("ev-body").textContent = ev.body;
+$("ev-hint").textContent = `関係しそうな社訓：${ev.goodTags.join("・") || "―"} が効き、${ev.badTags.join("・") || "―"} は裏目に出やすい`;
+$("ev-response").value = "";
+$("ev-action-wrap").classList.remove("hidden");
+$("ev-result-wrap").classList.add("hidden");
+}
+
+function onEventResolve(action) {
+if (!state || !state.currentEvent) return;
+const ev = getEvent(state.currentEvent.id);
+if (!ev) return;
+const res = resolveEvent(state, ev, action, phaseTagsMap(), state.glossary.length);
+state = res.state;
+state.lastReport = [...(state.lastReport || []), ...res.lines];
+state.currentEvent = null;
+saveState(state);
+$("ev-result").textContent = res.lines.join("\n");
+$("ev-action-wrap").classList.add("hidden");
+$("ev-result-wrap").classList.remove("hidden");
 }
 
 /* ---------- 結果画面 ---------- */
@@ -415,6 +498,12 @@ $("btn-back-from-office").addEventListener("click", () => show("title"));
 $("btn-back-from-editor").addEventListener("click", () => show("office"));
 $("btn-back-from-ledger").addEventListener("click", () => show("office"));
 $("btn-advance").addEventListener("click", onAdvance);
+$("btn-ev-respond").addEventListener("click", () => onEventResolve({ type: "respond", text: $("ev-response").value }));
+$("btn-ev-ignore").addEventListener("click", () => onEventResolve({ type: "ignore" }));
+$("btn-ev-done").addEventListener("click", () => {
+if (state && state.status!== "playing") show("result");
+else finishWeek();
+});
 $("btn-result").addEventListener("click", () => show("result"));
 $("btn-result-to-title").addEventListener("click", () => show("title"));
 

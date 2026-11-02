@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>企業価値の最大化だけが評価される</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>健全な成長が複合評価される</small></button>
   </div>
-  <p class="footnote">試作版（M2：週次シム）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M3：週報とイベント）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -75,6 +75,10 @@
     </div>
     <h3>週報</h3>
     <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
+    <details id="report-raw-wrap" class="hidden">
+      <summary>素材ログ（数値の記録）</summary>
+      <pre id="week-report-raw" class="preview"></pre>
+    </details>
   </div>
   <div class="row">
     <button id="btn-back-from-office" class="secondary">タイトルへ</button>
@@ -164,6 +168,31 @@
   </div>
 </section>
 
+<!-- イベント -->
+<section id="screen-event" class="screen">
+  <h2 id="ev-title">イベント</h2>
+  <p id="ev-category" class="note"></p>
+  <p id="ev-body"></p>
+  <p id="ev-hint" class="note"></p>
+  <div id="ev-action-wrap">
+    <label class="field">
+      <span>対応の布告（自由文）</span>
+      <textarea id="ev-response" rows="3" placeholder="どう対応するか、社長として一言"></textarea>
+    </label>
+    <div class="row">
+      <button id="btn-ev-respond" class="primary">対応を布告する</button>
+      <button id="btn-ev-ignore" class="secondary">静観する</button>
+    </div>
+    <p class="note">静観は正式な選択肢です。被害は出ますが、余計なリスクは増えません。</p>
+  </div>
+  <div id="ev-result-wrap" class="hidden">
+    <pre id="ev-result" class="preview"></pre>
+    <div class="row">
+      <button id="btn-ev-done" class="primary">週報へ</button>
+    </div>
+  </div>
+</section>
+
 <!-- フェーズ結果 -->
 <section id="screen-result" class="screen">
   <h2 id="result-title">結果</h2>
@@ -174,6 +203,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.6"></script>
+<script type="module" src="js/app.js?v=20261102.7"></script>
 </body>
 </html>

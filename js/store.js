@@ -19,6 +19,10 @@ export function defaultState() {
     status: "playing", // playing | bankrupt | empty | cleared（M2）
     rngState: seed, // 決定的乱数の状態（M2）
     lastReport: null, // 直近の週報素材ログ（M2）
+    pendingEventId: null, // 次週に発生するイベント（M3）
+    currentEvent: null, // 対応中のイベント（M3）
+    eventHistory: [], // 発生済みイベントID（M3）
+    reportText: null, // 週報ナレーション（M3）
     seed,
   };
 }
