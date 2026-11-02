@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.11";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.11";
+} from "./store.js?v=20261102.12";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.12";
 import {
 validateRecord,
 registerRule,
@@ -17,14 +17,14 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.11";
-import { extractRule} from "./extract.js?v=20261102.11";
-import { initialEmployees} from "./employees.js?v=20261102.11";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.11";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.11";
-import { narrateWeek } from "./report.js?v=20261102.11";
+} from "./ledger.js?v=20261102.12";
+import { extractRule} from "./extract.js?v=20261102.12";
+import { initialEmployees} from "./employees.js?v=20261102.12";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.12";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.12";
+import { narrateWeek } from "./report.js?v=20261102.12";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun } from "./scenes.js?v=20261102.11";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.12";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -34,6 +34,7 @@ let draftConflicts = [];
 const $ = (id) => document.getElementById(id);
 
 function show(name) {
+document.body.dataset.mode = state && state.mode ? state.mode : "";
 for (const s of screens) {
 $(`screen-${s}`).classList.toggle("active", s === name);
 }
@@ -70,6 +71,21 @@ if (changed) saveState(state);
 }
 
 /* ---------- 社長室 ---------- */
+function moodOf(e) {
+if (e.fatigue >= 85 || e.dissatisfaction >= 80) return "😵";
+if (e.fatigue >= 65 || e.dissatisfaction >= 60) return "😩";
+if (e.faith >= 65 && e.fatigue < 50) return "😄";
+return "🙂";
+}
+function snapshotOf(s) {
+const n = s.employees.length || 1;
+return {
+funds: s.funds, employees: s.employees.length,
+avgFaith: Math.round((s.employees.reduce((a, e) => a + e.faith, 0) / n) * 10) / 10,
+avgFatigue: Math.round((s.employees.reduce((a, e) => a + e.fatigue, 0) / n) * 10) / 10,
+reputation: s.reputation, risk: s.risk,
+};
+}
 function renderOffice() {
 if (!state) return;
 migrateState();
@@ -78,7 +94,16 @@ state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": 
 $("st-week").textContent = String(Math.min(state.week, 6));
 $("st-funds").textContent = state.funds.toLocaleString("ja-JP");
 $("st-employees").textContent = String(state.employees.length);
-$("st-rep").textContent = String(state.reputation);
+$("st-rep").textContent = `${state.reputation}（${state.reputation >= 60 ? "良好" : state.reputation >= 40 ? "普通" : "低迷"}）`;
+if (state.mode === "black") $("st-risk-wrap").classList.add("hidden");
+else {
+$("st-risk-wrap").classList.remove("hidden");
+$("st-risk").textContent = `${state.risk}（${state.risk >= 35 ? "危険" : state.risk >= 20 ? "注意" : "安全"}）`;
+}
+$("funds-note").textContent = state.lastProfit == null ? "" :
+state.lastProfit > 0 ? `直近週の収支：+${state.lastProfit}万円（黒字）` :
+state.lastProfit < 0 ? `直近週の収支：${state.lastProfit}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}週もちます` :
+"直近週の収支：±0万円";
 const active = activeRules(state.ledger);
 const conflicts = active.filter((r) => (r.contradictions || []).length > 0).length;
 const agg = aggregateTags(state.ledger);
@@ -90,6 +115,23 @@ const topTags = Object.entries(agg)
 $("ledger-summary").textContent =
 `有効な社訓 ${active.length} 件／矛盾の記録 ${conflicts} 件／造語 ${state.glossary.length} 件` +
 (topTags.length? `／主な効果：${topTags.join("、")}`: "");
+// 目標パネル（M6）
+$("goal-progress-label").textContent = `第${Math.min(state.week, 6)}週／全6週`;
+$("goal-progress-bar").style.width = `${Math.round((Math.min(Math.max(state.week - 1, 0), 6) / 6) * 100)}%`;
+$("goal-next").textContent =
+state.status!== "playing" ? "創業期は終了しました。結果画面で最終評価を確認できます。" :
+!state.loanDone && state.week <= 4 ? "次の山場：第4週の融資審査 ― 優遇の目安は「矛盾なし・資金800万円以上・平均信仰度55以上」です。" :
+!state.loanDone ? "融資審査がまだ終わっていません。「融資審査を受ける」から審査へ進めます。" :
+"次の山場：あとは6週完走が目標です。退職者を出さず、資金を守り切りましょう。";
+// 初回ガイド（M6）
+const guideSteps = [
+{ label: "社訓を1件、布告してみる", done: active.length >= 1 },
+{ label: "「週を進める」で1週間を回してみる", done: state.week >= 2 },
+{ label: "イベントが起きたら布告で対応する（静観も立派な選択肢）", done: (state.eventHistory || []).length >= 1 || state.week >= 3 },
+{ label: "第4週の融資審査に備える（矛盾ゼロ・資金と信仰度を保つ）", done: !!state.loanDone },
+];
+$("guide-panel").classList.toggle("hidden", !!state.guideClosed || guideSteps.every((g) => g.done));
+$("guide-steps").innerHTML = guideSteps.map((g) => `<li class="${g.done ? "done" : ""}">${g.done ? "✓ " : ""}${g.label}</li>`).join("");
 const empList = $("emp-list");
 empList.innerHTML = "";
 for (const e of state.employees) {
@@ -104,8 +146,59 @@ meta.textContent = state.mode === "black"
 ? `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ？？・不満 ？？・信仰度 ${e.faith}`
 : `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ${e.fatigue}・不満 ${e.dissatisfaction}・信仰度 ${e.faith}`;
 card.appendChild(meta);
+if (state.mode!== "black") name.textContent = `${moodOf(e)} ${e.name}`;
+const meters = document.createElement("div");
+meters.className = "meters";
+const meter = (label, value, kind) => {
+const row = document.createElement("div");
+row.className = "meter-row";
+const lv = kind === "faith" ? (value <= 30 ? "danger" : value < 45 ? "warn" : "safe") : value >= (kind === "fatigue" ? 85 : 80) ? "danger" : value >= (kind === "fatigue" ? 65 : 50) ? "warn" : "safe";
+row.innerHTML = `<span class="meter-label">${label}</span><span class="meter"><span class="meter-fill ${lv}" style="width:${value}%"></span></span><span class="meter-val">${value}</span>`;
+return row;
+};
+if (state.mode!== "black") {
+meters.appendChild(meter("疲労", e.fatigue, "fatigue"));
+meters.appendChild(meter("不満", e.dissatisfaction, "diss"));
+}
+meters.appendChild(meter("信仰", e.faith, "faith"));
+card.appendChild(meters);
+if (state.mode!== "black" && (e.fatigue >= 85 || e.dissatisfaction >= 80)) {
+const b = document.createElement("span");
+b.className = "badge danger";
+b.textContent = "退職圏";
+card.appendChild(b);
+} else if (state.mode!== "black" && (e.fatigue >= 65 || e.dissatisfaction >= 50)) {
+const b = document.createElement("span");
+b.className = "badge warn";
+b.textContent = "注意";
+card.appendChild(b);
+}
 empList.appendChild(card);
 }
+// 週報のハイライトと前週比（M6）
+const highlights = (state.lastReport || []).filter((l) => /^(⚠|💼|🎉|💸|【融資審査】|【面談】)/.test(l)).slice(0, 2);
+if (state.lastReport && highlights.length) {
+$("report-highlights").innerHTML = "<strong>今週のハイライト</strong>" + highlights.map((l) => `<div>${l}</div>`).join("");
+$("report-highlights").classList.remove("hidden");
+} else $("report-highlights").classList.add("hidden");
+const ps = state.prevSnapshot;
+if (ps && state.lastReport) {
+const cur = snapshotOf(state);
+const parts = [];
+const dpart = (label, a, b, goodWhenUp) => {
+const diff = Math.round((b - a) * 10) / 10;
+if (!diff) return;
+const good = goodWhenUp ? diff > 0 : diff < 0;
+parts.push(`<span class="${good ? "up" : "down"}">${label} ${diff > 0 ? "▲+" + diff : "▼" + diff}</span>`);
+};
+dpart("資金", ps.funds, cur.funds, true);
+dpart("平均信仰", ps.avgFaith, cur.avgFaith, true);
+dpart("平均疲労", ps.avgFatigue, cur.avgFatigue, false);
+dpart("評判", ps.reputation, cur.reputation, true);
+if (state.mode!== "black") dpart("リスク", ps.risk, cur.risk, false);
+$("report-diff").innerHTML = parts.length ? "前週比：" + parts.join("　") : "";
+$("report-diff").classList.toggle("hidden", !parts.length);
+} else $("report-diff").classList.add("hidden");
 if (state.reportText) {
 $("week-report").textContent = state.reportText;
 $("week-report-raw").textContent = (state.lastReport || []).join("\n");
@@ -141,6 +234,7 @@ tags: aggregateTags(state.ledger),
 contradictions: activeRules(state.ledger).reduce((s, r) => s + (r.contradictions || []).length, 0),
 glossary: state.glossary.length,
 };
+state.prevSnapshot = snapshotOf(state);
 const out = simulateWeek(state, ctx);
 state = out.state;
 state.lastReport = out.log;
@@ -329,8 +423,8 @@ $("result-summary").textContent = [
 ...(() => {
 const ev2 = evaluateRun(state);
 return state.mode === "black"
-? [`企業価値：${ev2.value}`, `最終スコア：${ev2.score}（ブラック：企業価値のみで評価。疲労・不満・告発リスクはプレイ中非表示でした）`]
-: [`企業価値：${ev2.value}／健全度：${ev2.health}`, `最終スコア：${ev2.score}（ホワイト：企業価値 ×（0.7＋0.3×健全度））`];
+? [`企業価値：${ev2.value}`, `最終スコア：${ev2.score}（ブラック：企業価値のみで評価。疲労・不満・告発リスクはプレイ中非表示でした）`, `ランク：${rankOf(ev2.score).rank}${rankOf(ev2.score).next ? `（あと ${rankOf(ev2.score).next.gap} 点で ${rankOf(ev2.score).next.rank}）` : "（最高ランクです）"}`]
+: [`企業価値：${ev2.value}／健全度：${ev2.health}`, `最終スコア：${ev2.score}（ホワイト：企業価値 ×（0.7＋0.3×健全度））`, `ランク：${rankOf(ev2.score).rank}${rankOf(ev2.score).next ? `（あと ${rankOf(ev2.score).next.gap} 点で ${rankOf(ev2.score).next.rank}）` : "（最高ランクです）"}`];
 })(),
 ].join("\n");
 }
@@ -644,3 +738,9 @@ $("btn-register").addEventListener("click", onRegister);
 $("btn-gl-add").addEventListener("click", onGlossaryAdd);
 
 show("title");
+$("btn-guide-close").addEventListener("click", () => {
+if (!state) return;
+state.guideClosed = true;
+saveState(state);
+$("guide-panel").classList.add("hidden");
+});

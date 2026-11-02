@@ -99,6 +99,7 @@ export function simulateWeek(state, ctx) {
 
   const profit = round1(sales - cost);
   next.funds = round1(next.funds + profit);
+  next.lastProfit = profit; // M6：runway表示用（判定には使わない）
   log.push(`売上 ${sales}万円／費用 ${cost}万円／収支 ${profit >= 0 ? "+" : ""}${profit}万円（資金 ${next.funds}万円）`);
 
   /* 社員の状態変化 */

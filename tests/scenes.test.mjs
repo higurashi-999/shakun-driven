@@ -1,6 +1,6 @@
 // 融資審査と面談の判定テスト（node tests/scenes.test.mjs）
 import assert from "node:assert/strict";
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun } from "../js/scenes.js";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun, rankOf } from "../js/scenes.js";
 import { initialEmployees } from "../js/employees.js";
 import { validateRecord, registerRule, aggregateTags } from "../js/ledger.js";
 
@@ -120,4 +120,14 @@ console.log("SCENES TESTS OK");
   for (const e of blackSame.employees) { e.faith = 20; e.dissatisfaction = 90; }
   blackSame.risk = 60;
   assert.equal(evaluateRun(blackSame).score, evT.value); // ブラックは健全度を無視
+}
+
+// --- M6: ランク付け ---
+{
+  assert.equal(rankOf(2500).rank, "S");
+  assert.equal(rankOf(2500).next, null);
+  assert.equal(rankOf(2100).rank, "A");
+  assert.deepEqual(rankOf(2100).next, { rank: "S", gap: 300 });
+  assert.equal(rankOf(1000).rank, "D");
+  assert.deepEqual(rankOf(1000).next, { rank: "C", gap: 200 });
 }

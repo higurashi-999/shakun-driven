@@ -105,3 +105,37 @@ details { margin-top: 24px; }
 details summary { cursor: pointer; padding: 8px 0; }
 .grow { flex: 1; }
 button:disabled { opacity: 0.5; }
+
+/* === M6 見える化 === */
+.meters { margin-top: 6px; display: grid; gap: 4px; }
+.meter-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.meter-label { width: 2.4em; color: var(--sub); }
+.meter { flex: 1; height: 8px; background: #e7e0cf; border-radius: 4px; overflow: hidden; }
+.meter-fill { display: block; height: 100%; }
+.meter-fill.safe { background: #2f5d50; }
+.meter-fill.warn { background: #c98a1b; }
+.meter-fill.danger { background: #b3382e; }
+.meter-val { width: 2em; text-align: right; }
+.badge { display: inline-block; margin-top: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; color: #fff; }
+.badge.danger { background: #b3382e; }
+.badge.warn { background: #c98a1b; }
+.goal-panel, .guide-panel { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.goal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.progress { height: 10px; background: #e7e0cf; border-radius: 5px; overflow: hidden; margin: 8px 0; }
+#goal-progress-bar { height: 100%; background: var(--accent2); width: 0%; transition: width .3s; }
+.goal-next { margin: 4px 0; }
+.goal-rules { color: var(--sub); font-size: 12px; margin: 2px 0 0; }
+.guide-panel ol { margin: 6px 0 2px 18px; padding: 0; }
+.guide-panel li { margin: 3px 0; }
+.guide-panel li.done { color: var(--sub); text-decoration: line-through; }
+button.mini { font-size: 12px; padding: 2px 10px; }
+.funds-note { margin: 6px 2px 0; }
+.report-highlights { border-left: 4px solid var(--accent); background: #fdf6ec; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; }
+.report-highlights div { margin-top: 2px; }
+.report-diff .up { color: #2f5d50; font-weight: 600; }
+.report-diff .down { color: #b3382e; font-weight: 600; }
+body[data-mode="black"] { --accent: #8f2d22; --accent2: #4a4a44; }
+body[data-mode="black"] .status-bar { background: #2b2723; color: #f3efe6; }
+body[data-mode="black"] .status-bar .label { color: #b9b2a4; }
+#screen-title h1 { letter-spacing: .04em; border-bottom: 3px solid var(--accent); display: inline-block; padding-bottom: 4px; }
+.mode-btn { text-align: left; line-height: 1.5; }

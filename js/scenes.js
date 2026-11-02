@@ -203,3 +203,16 @@ const health = Math.round(((avgFaith + (100 - avgDiss) + (100 - state.risk)) / 3
 const score = state.mode === "black" ? value : Math.round(value * (0.7 + 0.3 * (health / 100)));
 return { value, health, score };
 }
+
+// 結果ランク（試作スケールの暫定しきい値）
+export const RANK_THRESHOLDS = [["S", 2400], ["A", 2000], ["B", 1600], ["C", 1200]];
+export function rankOf(score) {
+for (let i = 0; i < RANK_THRESHOLDS.length; i++) {
+const [rank, min] = RANK_THRESHOLDS[i];
+if (score >= min) {
+const next = i > 0 ? { rank: RANK_THRESHOLDS[i - 1][0], gap: RANK_THRESHOLDS[i - 1][1] - score } : null;
+return { rank, next };
+}
+}
+return { rank: "D", next: { rank: "C", gap: 1200 - score } };
+}

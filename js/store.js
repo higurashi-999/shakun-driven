@@ -27,6 +27,9 @@ export function defaultState(mode = null) {
     loanResult: null, // 融資審査の結果（M4）
     interviewUsedWeek: 0, // 面談を使った週（M4）
     interview: null, // 進行中の面談 {empId, concernKey}（M4）
+    lastProfit: null, // 直近週の収支（M6：runway表示用）
+    prevSnapshot: null, // 前週スナップショット（M6：差分表示用）
+    guideClosed: false, // 初回ガイドを畳んだか（M6）
     seed,
   };
 }

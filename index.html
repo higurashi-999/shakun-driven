@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20261102.12">
 </head>
 <body>
 
@@ -24,7 +24,7 @@
     <button data-mode="black" class="mode-btn">ブラックモード<br><small>評価は企業価値だけ／疲労・不満・告発リスクは見えない／初期資金1,200万円・評判は低め</small></button>
     <button data-mode="white" class="mode-btn">ホワイトモード<br><small>企業価値×健全度で評価／全指標が見える／初期資金1,000万円・評判は高め</small></button>
   </div>
-  <p class="footnote">試作版（M5：モード差分と仕上げ）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M6：見える化）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -59,8 +59,20 @@
     <div><span class="label">資金</span><span id="st-funds">-</span><span class="label">万円</span></div>
     <div><span class="label">社員</span><span id="st-employees">0</span><span class="label">人</span></div>
     <div><span class="label">評判</span><span id="st-rep">50</span></div>
+    <div id="st-risk-wrap"><span class="label">告発リスク</span><span id="st-risk">-</span></div>
   </header>
+  <p id="funds-note" class="note funds-note"></p>
   <div class="office-body">
+    <div id="goal-panel" class="goal-panel">
+      <div class="goal-head"><strong>創業期の目標：6週完走</strong><span id="goal-progress-label"></span></div>
+      <div class="progress"><div id="goal-progress-bar"></div></div>
+      <p id="goal-next" class="goal-next"></p>
+      <p class="goal-rules">クリア：6週を完走する／敗北：資金が尽きる・社員が全員辞める</p>
+    </div>
+    <div id="guide-panel" class="guide-panel hidden">
+      <div class="goal-head"><strong>はじめの進め方</strong><button id="btn-guide-close" class="mini">閉じる</button></div>
+      <ol id="guide-steps"></ol>
+    </div>
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
     <div class="row">
@@ -79,6 +91,8 @@
     </div>
     <p id="office-note" class="note"></p>
     <h3>週報</h3>
+    <div id="report-highlights" class="report-highlights hidden"></div>
+    <p id="report-diff" class="report-diff hidden"></p>
     <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
     <details id="report-raw-wrap" class="hidden">
       <summary>素材ログ（数値の記録）</summary>
@@ -249,6 +263,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.11"></script>
+<script type="module" src="js/app.js?v=20261102.12"></script>
 </body>
 </html>
