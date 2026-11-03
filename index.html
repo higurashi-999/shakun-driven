@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.13">
+<link rel="stylesheet" href="css/style.css?v=20261102.14">
 </head>
 <body>
 
@@ -14,17 +14,21 @@
     <h1 class="sr-only">社訓ドリブン</h1>
     <img id="title-art" alt="社訓ドリブン ― 屋上の朝礼と日の出">
   </div>
-  <div class="menu">
+  <div class="menu" id="menu-main">
     <button id="btn-new" class="primary">はじめから</button>
     <button id="btn-continue" class="secondary">つづきから</button>
-    <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
   <div id="mode-select" class="mode-select hidden">
-    <p>どちらの物差しで経営しますか？</p>
-    <button data-mode="black" class="mode-btn">ブラックモード<br><small>評価は企業価値だけ／疲労・不満・告発リスクは見えない／初期資金1,200万円・評判は低め</small></button>
-    <button data-mode="white" class="mode-btn">ホワイトモード<br><small>企業価値×健全度で評価／全指標が見える／初期資金1,000万円・評判は高め</small></button>
+    <div class="mode-row">
+      <button data-mode="black" class="mode-btn mode-black"><strong>ブラックモード</strong><small>企業価値だけを追う。社員の状態は見えない</small></button>
+      <button data-mode="white" class="mode-btn mode-white"><strong>ホワイトモード</strong><small>健全さも評価される。全指標が見える</small></button>
+    </div>
+    <button id="btn-mode-back" class="mini-link">もどる</button>
   </div>
-  <p class="footnote">試作版（M7：デザイン適用）／仕様は SPEC.md を参照</p>
+  <div class="menu-single">
+    <button id="btn-settings" class="secondary">設定（APIキー）</button>
+  </div>
+  <p class="footnote">試作版（M7.1：タイトル画面の改善）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -263,6 +267,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.13"></script>
+<script type="module" src="js/app.js?v=20261102.14"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.13";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.13";
+} from "./store.js?v=20261102.14";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.14";
 import {
 validateRecord,
 registerRule,
@@ -17,15 +17,15 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.13";
-import { extractRule} from "./extract.js?v=20261102.13";
-import { initialEmployees} from "./employees.js?v=20261102.13";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.13";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.13";
-import { narrateWeek } from "./report.js?v=20261102.13";
+} from "./ledger.js?v=20261102.14";
+import { extractRule} from "./extract.js?v=20261102.14";
+import { initialEmployees} from "./employees.js?v=20261102.14";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.14";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.14";
+import { narrateWeek } from "./report.js?v=20261102.14";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.13";
-import { TITLE_ART } from "./assets.js?v=20261102.13";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.14";
+import { TITLE_ART } from "./assets.js?v=20261102.14";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -638,7 +638,12 @@ renderLedger();
 
 /* ---------- タイトル画面 ---------- */
 $("btn-new").addEventListener("click", () => {
+$("menu-main").classList.add("hidden");
 $("mode-select").classList.remove("hidden");
+});
+$("btn-mode-back").addEventListener("click", () => {
+$("mode-select").classList.add("hidden");
+$("menu-main").classList.remove("hidden");
 });
 document.querySelectorAll(".mode-btn").forEach((btn) => {
 btn.addEventListener("click", () => {

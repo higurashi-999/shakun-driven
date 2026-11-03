@@ -173,3 +173,21 @@ body[data-mode="black"] .meter-fill.safe { background: #7fb69e; }
 body[data-mode="black"] .meter-fill.warn { background: #d9a83f; }
 body[data-mode="black"] .meter-fill.danger { background: #e08a7d; }
 body[data-mode="black"] #title-art { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
+
+/* === M7.1 タイトル画面の改善 === */
+#screen-title { padding-top: 10px; }
+#screen-title .title-block { margin: 0 0 14px; }
+.menu { display: flex; gap: 12px; }
+.menu > button { flex: 1; }
+.menu-single { margin-top: 12px; }
+.menu-single > button { width: 100%; }
+.mode-select { margin-top: 0; display: block; }
+.mode-row { display: flex; gap: 12px; }
+.mode-btn { flex: 1; text-align: center; padding: 14px 10px; line-height: 1.45; }
+.mode-btn strong { display: block; font-size: 17px; margin-bottom: 4px; }
+.mode-btn small { display: block; font-size: 12px; line-height: 1.55; }
+.mode-black { background: #2b2723; border: 2px solid #2b2723; border-top: 5px solid #b3543f; color: #f3efe6; }
+.mode-black small { color: #c9c2b2; }
+.mode-white { background: #ffffff; border: 2px solid #2f5d50; border-top: 5px solid #2f5d50; color: #23201a; }
+.mode-white small { color: #6f6a5e; }
+.mini-link { display: block; margin: 10px auto 0; background: none; border: none; color: var(--sub); font-size: 13px; padding: 6px 10px; text-decoration: underline; }
