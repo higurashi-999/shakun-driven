@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.16";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.16";
+} from "./store.js?v=20261102.17";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.17";
 import {
 validateRecord,
 registerRule,
@@ -17,15 +17,15 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.16";
-import { extractRule} from "./extract.js?v=20261102.16";
-import { initialEmployees} from "./employees.js?v=20261102.16";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.16";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.16";
-import { narrateWeek } from "./report.js?v=20261102.16";
+} from "./ledger.js?v=20261102.17";
+import { extractRule} from "./extract.js?v=20261102.17";
+import { initialEmployees} from "./employees.js?v=20261102.17";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.17";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.17";
+import { narrateWeek } from "./report.js?v=20261102.17";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.16";
-import { TITLE_ART } from "./assets.js?v=20261102.16";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.17";
+import { TITLE_ART } from "./assets.js?v=20261102.17";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -213,10 +213,17 @@ $("report-raw-wrap").classList.add("hidden");
 const hasReport = !!(state.reportText || state.lastReport);
 $("report-masthead").classList.toggle("hidden", !hasReport);
 if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.week - 1)}号 ― 第${Math.max(1, state.week - 1)}週発行`;
-const circ = $("report-circulation");
-circ.classList.toggle("hidden", !hasReport);
+const moodEl = $("report-mood");
+moodEl.classList.toggle("hidden", !hasReport);
 if (hasReport) {
-circ.innerHTML = "<span class=\"circ-label\">回覧</span>" + state.employees.map((e, i) => `<span class="stamp-circle" style="transform: rotate(${i % 2 ? 5 : -6}deg)">${e.name.slice(0, 1)}<small>済</small></span>`).join("");
+const moodOf = (e) => {
+if (state.mode === "black") return e.faith >= 55 ? ["意欲的", "ok"] : e.faith >= 40 ? ["普通", ""] : ["意欲低下", "warn"];
+if (e.fatigue >= 85 || e.dissatisfaction >= 80 || e.faith <= 30) return ["退職圏", "danger"];
+if (e.fatigue >= 65 || e.dissatisfaction >= 50 || e.faith <= 45) return ["要注意", "warn"];
+if (e.faith >= 65 && e.fatigue < 40) return ["絶好調", "ok"];
+return ["安定", "ok"];
+};
+moodEl.innerHTML = "<span class=\"mood-label\">社員の様子</span>" + orderedEmps.map((e) => { const [w, z] = moodOf(e); const f = state.mode === "black" ? "" : faceOf(e) + " "; return `<span class="mood-chip ${z}">${f}${e.name} ― ${w}</span>`; }).join("");
 }
 $("btn-advance").disabled = state.status!== "playing";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
