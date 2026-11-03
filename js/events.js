@@ -278,17 +278,17 @@ next.funds = Math.round((next.funds + (effects.funds || 0)) * 10) / 10;
 next.reputation = clamp(next.reputation + (effects.reputation || 0), 0, 100);
 next.risk = clamp(next.risk + (effects.risk || 0), 0, 100);
 for (const e of next.employees) {
-e.fatigue = clamp(e.fatigue + (effects.fatigueAll || 0), 0, 100);
+e.hp = clamp(e.hp - (effects.fatigueAll || 0), 0, 100); // 疲労の増減は体力ゲージの逆向き
 e.faith = clamp(e.faith + (effects.faithAll || 0), 0, 100);
 }
 const summary = [];
 if (effects.funds) summary.push(`資金${effects.funds > 0? "+": ""}${effects.funds}万円`);
 if (effects.reputation) summary.push(`評判${effects.reputation > 0? "+": ""}${effects.reputation}`);
-if (effects.fatigueAll) summary.push(`全員の疲労${effects.fatigueAll > 0? "+": ""}${effects.fatigueAll}`);
+if (effects.fatigueAll) summary.push(`全員の体力${effects.fatigueAll > 0? "−": "+"}${Math.abs(effects.fatigueAll)}`);
 if (effects.faithAll) summary.push(`全員の信仰度${effects.faithAll > 0? "+": ""}${effects.faithAll}`);
 if (effects.risk && state.mode !== "black") summary.push(`告発リスク${effects.risk > 0? "+": ""}${effects.risk}`); // ブラックでは非表示
 lines.push(`結果：${grade}${summary.length? `（${summary.join("、")}）`: ""}`);
-// 社長命令の副作用：AI提案を適用する（静観と無関係な命令には付けない）
+// 社長命令の余波：AI提案を適用する（静観と無関係な命令には付けない）
 const side = aiJudge && grade !== "静観" && aiJudge.relevance >= 1 ? (aiJudge.sideEffects || []) : [];
 if (side.length) {
 const ssum = [];
@@ -297,9 +297,9 @@ if (ef.key === "funds") { next.funds = Math.round((next.funds + ef.value) * 10) 
 if (ef.key === "reputation") { next.reputation = clamp(next.reputation + ef.value, 0, 100); ssum.push(`評判${ef.value > 0 ? "+" : ""}${ef.value}`); }
 if (ef.key === "risk") { next.risk = clamp(next.risk + ef.value, 0, 100); if (state.mode !== "black") ssum.push(`告発リスク${ef.value > 0 ? "+" : ""}${ef.value}`); }
 if (ef.key === "faith") { for (const e of next.employees) e.faith = clamp(e.faith + ef.value, 0, 100); ssum.push(`全員の信仰度${ef.value > 0 ? "+" : ""}${ef.value}`); }
-if (ef.key === "fatigue") { for (const e of next.employees) e.fatigue = clamp(e.fatigue + ef.value, 0, 100); ssum.push(`全員の疲労${ef.value > 0 ? "+" : ""}${ef.value}`); }
+if (ef.key === "hp") { for (const e of next.employees) e.hp = clamp(e.hp + ef.value, 0, 100); ssum.push(`全員の体力${ef.value > 0 ? "+" : ""}${ef.value}`); }
 }
-if (ssum.length) lines.push(`社長命令の副作用：${ssum.join("、")}${aiJudge.effectReason ? ` ― ${aiJudge.effectReason}` : ""}`);
+if (ssum.length) lines.push(`社長命令の余波：${ssum.join("、")}${aiJudge.effectReason ? ` ― ${aiJudge.effectReason}` : ""}`);
 }
 if (next.funds < 0 && next.status === "playing") {
 next.status = "bankrupt";
@@ -322,8 +322,8 @@ rules,
 "- specificity（0〜2の整数）：具体策があるか。精神論だけなら0、やや具体的なら1、担当・期限・数値など具体的手段があるなら2。",
 "- consistency（-1, 0, 1のいずれか）：台帳の社訓と矛盾する対応なら-1、無関係なら0、台帳の方針に沿う・活かす対応なら1。",
 '- rationale：判定理由を日本語で40字以内の一文。',
-"- sideEffects（0〜2件の配列）：対応のやり方から自然に生じる副次的な影響だけを提案する。キーは funds（万円、-30〜30）／faith（全員の信仰度、-8〜8）／fatigue（全員の疲労、-10〜10）／reputation（評判、-5〜5）／risk（告発リスク、-8〜8）。費用・負担・評判への影響が読み取れない対応では空配列にする。イベント自体の成否による効果は含めない。",
-"- effectReason：副作用の理由を日本語で40字以内の一文（副作用がない場合は空文字）。",
+"- sideEffects（0〜2件の配列）：対応のやり方から自然に生じる余波（副次的な影響）だけを提案する。キーは funds（万円、-30〜30）／faith（全員の信仰度、-8〜8）／hp（全員の体力、-10〜10。マイナスは疲弊、プラスは回復）／reputation（評判、-5〜5）／risk（告発リスク、-8〜8）。費用・負担・評判への影響が読み取れない対応では空配列にする。イベント自体の成否による効果は含めない。",
+"- effectReason：余波の理由を日本語で40字以内の一文（余波がない場合は空文字）。",
 '出力形式：{"relevance":2,"specificity":1,"consistency":0,"rationale":"理由","sideEffects":[{"key":"funds","value":-20}],"effectReason":"理由"}',
 ].join("\n");
 }
@@ -358,5 +358,5 @@ effectReason: String(obj.effectReason || "").slice(0, 60),
 };
 }
 
-// 社長命令の副作用の上限（コード側の許可範囲）。LLMの提案はこの範囲に必ず切り詰める。
-export const SIDE_LIMITS = { funds: 30, faith: 8, fatigue: 10, reputation: 5, risk: 8 };
+// 社長命令の余波の上限（コード側の許可範囲）。LLMの提案はこの範囲に必ず切り詰める。
+export const SIDE_LIMITS = { funds: 30, faith: 8, hp: 10, reputation: 5, risk: 8 };

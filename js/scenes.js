@@ -88,18 +88,18 @@ export function pickInterviewTarget(state) {
 let best = null;
 let bestScore = -Infinity;
 for (const e of state.employees) {
-const danger = e.fatigue + e.dissatisfaction + (100 - e.faith) * 0.5;
+const danger = (100 - e.hp) + (100 - e.faith) * 0.5;
 if (danger > bestScore) { bestScore = danger; best = e;}
 }
 if (!best) return null;
-if (!(best.fatigue >= 60 || best.dissatisfaction >= 50 || best.faith <= 30)) return null;
+if (!(best.hp <= 40 || best.faith <= 30)) return null;
 return best;
 }
 
 // 主訴の判定：いちばん強い不満の軸を選ぶ
 export function detectConcern(emp) {
-const restNeed = emp.fatigue;
-const conditionsNeed = emp.dissatisfaction;
+const restNeed = 100 - emp.hp;
+const conditionsNeed = (100 - emp.faith) * 0.6;
 const futureNeed = 100 - emp.faith + emp.ambition * 2;
 if (restNeed >= conditionsNeed && restNeed >= futureNeed) return "rest";
 if (conditionsNeed >= futureNeed) return "conditions";
@@ -136,7 +136,7 @@ add("⚠ 言行不一致：休ませると言いながら、労働強化の社�
 if (/給料を上|昇給|手当を増|待遇を改善/.test(text) && (tags["コスト削減"] || 0) >= 2) {
 add("⚠ 言行不一致：待遇改善を約束しながら、コスト削減の社訓が強く残っている", -2);
 }
-if (emp.loyalty >= 7) add("本人の忠誠心が高く、踏みとどまりやすい", 1);
+if (emp.faith >= 55) add("本人の信仰度が高く、踏みとどまりやすい", 1);
 
 let outcome;
 if (score >= 4) outcome = "stay";
@@ -149,12 +149,11 @@ const lines = [`${emp.name}（${concern.label}）`];
 for (const f of factors) lines.push(`${f.points > 0? "＋": f.points < 0? "－": "・"} ${f.label}${f.points? `（${f.points > 0? "+": ""}${f.points}）`: ""}`);
 if (outcome === "stay") {
 target.faith = Math.min(100, target.faith + 8);
-target.dissatisfaction = Math.max(0, target.dissatisfaction - 15);
-target.fatigue = Math.max(0, target.fatigue - 5);
-lines.push(`判定：退職を思いとどまりました（スコア ${score}）。信仰度+8、不満-15、疲労-5。`);
+target.hp = Math.min(100, target.hp + 5);
+lines.push(`判定：退職を思いとどまりました（スコア ${score}）。信仰度+8、体力+5。`);
 } else if (outcome === "watch") {
-target.dissatisfaction = Math.max(0, target.dissatisfaction - 5);
-lines.push(`判定：様子見です（スコア ${score}）。結論は出ませんでしたが、不満が少し和らぎました。`);
+target.faith = Math.min(100, target.faith + 2);
+lines.push(`判定：様子見です（スコア ${score}）。結論は出ませんでしたが、信仰度が少し戻りました。`);
 } else {
 next.employees = next.employees.filter((e) => e.id!== empId);
 next.funds = Math.round((next.funds - TURNOVER_COST) * 10) / 10;
@@ -181,7 +180,7 @@ outcome === "watch"? "結論を保留する。社長の言葉は届いたが、�
 "退職の決意は固い。静かに、しかし明確に別れを告げる";
 return [
 `あなたは会社経営ゲームの社員「${emp.name}」です。退職相談の面談で、社長への返答を1〜2文で書いてください。`,
-`あなたの状態：疲労 ${emp.fatigue}／不満 ${emp.dissatisfaction}／会社への信仰度 ${emp.faith}。訴えは「${concern.label}」。`,
+`あなたの状態：体力 ${emp.hp}／会社への信仰度 ${emp.faith}。訴えは「${concern.label}」。`,
 `社長の発言：「${playerText}」`,
 `心境：${mood}。この心境から外れた結論を書かないこと。説明や前置きは不要、台詞だけを出力してください。`,
 ].join("\n");
@@ -197,9 +196,9 @@ quit: "……すみません。決めました。辞めさせてください。"
 export function evaluateRun(state) {
 const n = state.employees.length;
 const avgFaith = n ? state.employees.reduce((s2, e) => s2 + e.faith, 0) / n : 0;
-const avgDiss = n ? state.employees.reduce((s2, e) => s2 + e.dissatisfaction, 0) / n : 100;
+const avgHp = n ? state.employees.reduce((s2, e) => s2 + e.hp, 0) / n : 0;
 const value = Math.round(state.funds + n * 100 + state.reputation * 5);
-const health = Math.round(((avgFaith + (100 - avgDiss) + (100 - state.risk)) / 3) * 10) / 10;
+const health = Math.round(((avgFaith + avgHp + (100 - state.risk)) / 3) * 10) / 10;
 const score = state.mode === "black" ? value : Math.round(value * (0.7 + 0.3 * (health / 100)));
 return { value, health, score };
 }
@@ -224,8 +223,8 @@ export const ONE_ON_ONE_MAX_TURNS = 5;
 // 社員の「話を聞く余裕」の初期値。性格の基礎値に、その週の状態を反映する（非開示）。
 export function oneOnOneInitialPoints(emp, character) {
   let p = character && character.patienceBase != null ? character.patienceBase : 50;
-  p -= Math.max(0, emp.fatigue - 50) * 0.4;
-  p -= Math.max(0, emp.dissatisfaction - 40) * 0.4;
+  p -= Math.max(0, 60 - emp.hp) * 0.4;
+  p -= Math.max(0, 40 - emp.faith) * 0.3;
   p += Math.max(0, emp.faith - 50) * 0.2;
   return Math.round(Math.min(90, Math.max(15, p)));
 }
@@ -265,9 +264,8 @@ export function judgeOneOnOne(state, empId, session) {
   } else if (session.points >= 65) {
     outcome = "motivated";
     emp.faith = clamp(emp.faith + 8, 0, 100);
-    emp.dissatisfaction = clamp(emp.dissatisfaction - 8, 0, 100);
-    emp.fatigue = clamp(emp.fatigue - 3, 0, 100);
-    lines.push(`1on1の結果、${emp.name} の意欲が大きく上がりました（信仰度+8、不満−8、疲労−3）。`);
+    emp.hp = clamp(emp.hp + 3, 0, 100);
+    lines.push(`1on1の結果、${emp.name} の意欲が大きく上がりました（信仰度+8、体力+3）。`);
   } else if (session.points >= 40) {
     outcome = "steady";
     emp.faith = clamp(emp.faith + 2, 0, 100);
@@ -275,27 +273,27 @@ export function judgeOneOnOne(state, empId, session) {
   } else if (session.points >= 15) {
     outcome = "worse";
     emp.faith = clamp(emp.faith - 4, 0, 100);
-    emp.dissatisfaction = clamp(emp.dissatisfaction + 6, 0, 100);
-    lines.push(`1on1の結果、${emp.name} との溝は深まりました（信仰度−4、不満+6）。`);
+    lines.push(`1on1の結果、${emp.name} との溝は深まりました（信仰度−4）。`);
   } else {
     outcome = "much-worse";
     emp.faith = clamp(emp.faith - 8, 0, 100);
-    emp.dissatisfaction = clamp(emp.dissatisfaction + 10, 0, 100);
     next.risk = clamp(next.risk + 2, 0, 100);
-    lines.push(`1on1の結果、${emp.name} は大きく失望しました（信仰度−8、不満+10、告発リスク+2）。`);
+    lines.push(`1on1の結果、${emp.name} は大きく失望しました（信仰度−8、告発リスク+2）。`);
   }
   return { state: next, lines, outcome };
 }
 
 // 社員の返答生成プロンプト（キャラ設定と裏設定はLLMにだけ渡す）。JSONのみ返させる。
-export function buildOneOnOnePrompt(state, emp, character, history, playerText) {
+export function buildOneOnOnePrompt(state, emp, character, history, playerText, recentLines = []) {
   const rules = (state.ledger || []).filter((r) => r.status === "active").map((r) => `・${r.text}`).join("\n") || "（社訓なし）";
-  const hist = (history || []).map((h) => `${h.who === "president" ? "社長" : emp.name}：${h.text}`).join("\n");
+  const hist = (history || []).map((h) => `${h.who === "me" ? "社長" : emp.name}：${h.text}`).join("\n");
   return [
     "あなたは会社経営ゲームの社員役です。社長との1on1面談で、社員として返答してください。出力はJSONのみ。",
     `【あなた】${emp.name}。${character.profile || ""}`,
     `【本音と地雷（社長には見えていない設定。演技の指針にだけ使う）】${character.hidden || ""}`,
-    `【今の状態】疲労${Math.round(emp.fatigue)}・不満${Math.round(emp.dissatisfaction)}・信仰度${Math.round(emp.faith)}（各0〜100）`,
+    `【今の状態】体力${Math.round(emp.hp)}・信仰度${Math.round(emp.faith)}（各0〜100）`,
+    emp.lastProfit != null ? `【先週の収支貢献】売上${Math.round(emp.lastSales)}万円＋コストダウン${Math.round(emp.lastSaving)}万円−コスト${Math.round(emp.lastCost)}万円＝${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円` : "",
+    recentLines.length ? `【会社の直近の出来事】\n${recentLines.slice(-3).join("\n")}` : "",
     "【現在の社訓】",
     rules,
     "【これまでの会話】",

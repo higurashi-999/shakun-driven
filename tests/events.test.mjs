@@ -106,7 +106,7 @@ console.log("EVENTS TESTS OK");
   assert.notEqual(okRes.grade, "失敗");
 }
 
-// --- M9：社長命令の副作用（パースのクランプと適用） ---
+// --- M9：社長命令の余波（パースのクランプと適用） ---
 const parsed = parseEventJudgeResult('{"relevance":2,"specificity":1,"consistency":0,"rationale":"ok","sideEffects":[{"key":"funds","value":-999},{"key":"faith","value":3},{"key":"unknown","value":5},{"key":"risk","value":0}],"effectReason":"臨時対応費"}');
 assert.equal(parsed.sideEffects.length, 2, "不正キーと0は除外される");
 assert.equal(parsed.sideEffects[0].value, -SIDE_LIMITS.funds, "資金は下限にクランプされる");
@@ -115,13 +115,13 @@ const ev9 = EVENTS.find((e) => e.id === "ev-server-down");
 const judge9 = { relevance: 2, specificity: 1, consistency: 0, rationale: "x", sideEffects: [{ key: "funds", value: -20 }, { key: "faith", value: 5 }], effectReason: "対応費と感謝" };
 const before9 = initialEmployees();
 const r9 = resolveEvent(makeState(), ev9, { type: "respond", text: "復旧手順を実施" }, {}, 0, judge9);
-assert.ok(r9.lines.some((l) => l.includes("社長命令の副作用")), "副作用の行が出る");
-assert.equal(r9.state.funds, Math.round((1000 + (r9.effects.funds || 0) - 20) * 10) / 10, "資金の副作用が適用される");
+assert.ok(r9.lines.some((l) => l.includes("社長命令の余波")), "余波の行が出る");
+assert.equal(r9.state.funds, Math.round((1000 + (r9.effects.funds || 0) - 20) * 10) / 10, "資金の余波が適用される");
 r9.state.employees.forEach((e, i) => {
   const want = Math.min(100, Math.max(0, before9[i].faith + (r9.effects.faithAll || 0) + 5));
-  assert.equal(e.faith, want, "信仰の副作用が全員に適用される");
+  assert.equal(e.faith, want, "信仰の余波が全員に適用される");
 });
 const judgeNg = { ...judge9, relevance: 0 };
 const rNg = resolveEvent(makeState(), ev9, { type: "respond", text: "がんばれ" }, {}, 0, judgeNg);
-assert.ok(!rNg.lines.some((l) => l.includes("社長命令の副作用")), "無関係な命令には副作用が付かない");
+assert.ok(!rNg.lines.some((l) => l.includes("社長命令の余波")), "無関係な命令には余波が付かない");
 console.log("EVENTS TESTS OK");

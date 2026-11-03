@@ -104,24 +104,24 @@ function addRule(state, overrides) {
   const { state } = runWeeks(s, 6);
   const sum = summarize(state);
   assert.ok(
-    sum.avgFatigue >= 60 && sum.risk >= 20,
-    `過重労働の代償（疲労・リスクの蓄積）が出るはず: ${JSON.stringify(sum)}`
+    sum.avgHp <= 45 && sum.avgFaith <= 45,
+    `過重労働の代償（体力と信仰度の消耗）が出るはず: ${JSON.stringify(sum)}`
   );
-  const avgFatigue = state.employees.length
-    ? state.employees.reduce((sum, e) => sum + e.fatigue, 0) / state.employees.length
-    : 100;
-  assert.ok(avgFatigue > 40, `平均疲労が蓄積するはず: ${avgFatigue}`);
+  const avgHp = state.employees.length
+    ? state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length
+    : 0;
+  assert.ok(avgHp < 60, `平均体力が消耗するはず: ${avgHp}`);
 }
 
-// 福利厚生は疲労を抑える
+// 福利厚生は体力を守る
 {
   const s = makeState();
   addRule(s, { text: "有給は全員100%消化", tag: "福利厚生", strength: 3 });
   addRule(s, { text: "定時退社を徹底", tag: "福利厚生", strength: 2 });
   const { state } = runWeeks(s, 6);
   assert.equal(state.status, "cleared");
-  const avgFatigue = state.employees.reduce((sum, e) => sum + e.fatigue, 0) / state.employees.length;
-  assert.ok(avgFatigue < 35, `福利厚生で疲労が抑えられるはず: ${avgFatigue}`);
+  const avgHp = state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length;
+  assert.ok(avgHp > 65, `福利厚生で体力が守られるはず: ${avgHp}`);
 }
 
 console.log("SIM TESTS OK");

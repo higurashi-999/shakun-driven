@@ -52,7 +52,7 @@ function phaseTags(state) {
 // 面談：対象選出と主訴判定
 {
   const s = makeState();
-  s.employees[0].fatigue = 90; // 高嶺を危険な状態に
+  s.employees[0].hp = 10; // 高嶺を危険な状態に
   const target = pickInterviewTarget(s);
   assert.equal(target.id, "emp-1");
   assert.equal(detectConcern(target), "rest");
@@ -64,8 +64,7 @@ function phaseTags(state) {
 {
   const build = () => {
     const s = makeState();
-    s.employees[0].fatigue = 90;
-    s.employees[0].dissatisfaction = 40;
+    s.employees[0].hp = 10;
     return s;
   };
   const withLedger = build();
@@ -84,7 +83,7 @@ function phaseTags(state) {
 // 面談：言行不一致はペナルティになる
 {
   const s = makeState();
-  s.employees[0].fatigue = 90;
+  s.employees[0].hp = 10;
   addRule(s, { text: "残業は美徳", tag: "労働強化", strength: 3 });
   addRule(s, { text: "残業こそ成長", tag: "労働強化", strength: 3 });
   const res = judgeInterview(s, "emp-1", "残業を減らして休ませます", phaseTags(s));
@@ -111,13 +110,13 @@ console.log("SCENES TESTS OK");
   const healthy = makeState({ mode: "white", funds: 1000 });
   const evH = evaluateRun(healthy);
   const tired = makeState({ mode: "white", funds: 1000 });
-  for (const e of tired.employees) { e.faith = 20; e.dissatisfaction = 90; }
+  for (const e of tired.employees) { e.faith = 20; e.hp = 10; }
   tired.risk = 60;
   const evT = evaluateRun(tired);
   assert.equal(evH.value, evT.value); // 企業価値は同じ
   assert.ok(evH.score > evT.score); // でもホワイトのスコアは健全度で差がつく
   const blackSame = makeState({ mode: "black", funds: 1000 });
-  for (const e of blackSame.employees) { e.faith = 20; e.dissatisfaction = 90; }
+  for (const e of blackSame.employees) { e.faith = 20; e.hp = 10; }
   blackSame.risk = 60;
   assert.equal(evaluateRun(blackSame).score, evT.value); // ブラックは健全度を無視
 }
@@ -135,11 +134,11 @@ console.log("SCENES TESTS OK");
 // --- M10：1 on 1 ---
 import { oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, hasPressure, parseOneOnOneReply } from "../js/scenes.js";
 import { getCharacter } from "../js/employees.js";
-const baseEmp = { id: "emp-3", name: "桐生 葵", fatigue: 20, dissatisfaction: 15, faith: 45 };
+const baseEmp = { id: "emp-3", name: "桐生 葵", hp: 80, faith: 45 };
 const pts = oneOnOneInitialPoints(baseEmp, getCharacter("emp-3"));
 assert.ok(pts >= 15 && pts <= 90, "初期ポイントは範囲内");
-const tired = oneOnOneInitialPoints({ ...baseEmp, fatigue: 95, dissatisfaction: 90, faith: 10 }, getCharacter("emp-3"));
-assert.ok(tired < pts, "疲労と不満が高いと初期ポイントは下がる");
+const tired = oneOnOneInitialPoints({ ...baseEmp, hp: 5, faith: 10 }, getCharacter("emp-3"));
+assert.ok(tired < pts, "体力と信仰度が低いと初期ポイントは下がる");
 assert.equal(clampPointDelta(-999, getCharacter("emp-5")), -25, "振れ幅でクランプ（八雲は25）");
 assert.equal(clampPointDelta(999, getCharacter("emp-5")), 10, "プラス側は一律+10まで");
 assert.ok(hasPressure(["もう辞めてもらって構いません"]));

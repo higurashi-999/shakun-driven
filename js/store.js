@@ -7,7 +7,7 @@ export function defaultState(mode = null) {
   const seed = (Math.random() * 0xffffffff) >>> 0;
   return {
     version: 1,
-    mode: null, // "black" | "white"
+    mode, // "black" | "white"（M11：引数を保存する。以前は null 固定でモードが表示・判定に反映されないバグがあった）
     phase: 1, // 創業期
     week: 1,
     funds: mode === "black" ? 1200 : 1000, // 万円（ブラックは初期資金に余裕がある）

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.20">
+<link rel="stylesheet" href="css/style.css?v=20261102.21">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M10：社訓3枠と1on1）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M11：2軸モデルとダッシュボード）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -58,12 +58,12 @@
 <!-- 社長室（メイン画面の骨格） -->
 <section id="screen-office" class="screen">
   <header class="status-bar">
-    <div><span class="label">モード</span><span id="st-mode">-</span></div>
-    <div><span class="label">第</span><span id="st-week">1</span><span class="label">週</span></div>
-    <div><span class="label">資金</span><span id="st-funds">-</span><span class="label">万円</span></div>
-    <div><span class="label">社員</span><span id="st-employees">0</span><span class="label">人</span></div>
-    <div><span class="label">評判</span><span id="st-rep">50</span></div>
-    <div id="st-risk-wrap"><span class="label">告発リスク</span><span id="st-risk">-</span></div>
+    <div class="stat-tile"><span class="stat-label">モード</span><span class="stat-value" id="st-mode">-</span></div>
+    <div class="stat-tile"><span class="stat-label">週</span><span class="stat-value"><span id="st-week">1</span><small>／6週</small></span></div>
+    <div class="stat-tile"><span class="stat-label">資金</span><span class="stat-value"><span id="st-funds">-</span><small>万円</small></span></div>
+    <div class="stat-tile"><span class="stat-label">社員</span><span class="stat-value"><span id="st-employees">0</span><small>人</small></span></div>
+    <div class="stat-tile"><span class="stat-label">評判</span><span class="stat-value"><span id="st-rep">50</span><small id="st-rep-word"></small></span></div>
+    <div class="stat-tile" id="st-risk-wrap"><span class="stat-label">告発リスク</span><span class="stat-value"><span id="st-risk">-</span><small id="st-risk-word"></small></span></div>
   </header>
   <p id="funds-note" class="note funds-note"></p>
   <div class="office-body">
@@ -80,8 +80,8 @@
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
     <div class="row">
-      <button id="btn-to-editor" class="primary">社訓を書く</button>
-      <button id="btn-to-ledger" class="secondary">台帳を見る</button>
+      
+      <button id="btn-to-ledger" class="primary">社訓・台帳</button>
     </div>
     <h3>社員</h3>
     <div id="emp-list"></div>
@@ -143,54 +143,22 @@
       <button id="btn-register" class="primary">この内容で台帳に登録</button>
     </div>
   </div>
-  <details id="manual-form">
-    <summary>手入力フォーム（AIを使わずに作る）</summary>
-    <label class="field"><span>原文</span><input id="m-text" type="text"></label>
-    <label class="field"><span>対象</span><input id="m-target" type="text" value="全員"></label>
-    <label class="field"><span>種別</span>
-      <select id="m-kind">
-        <option>理念</option><option selected>行動規範</option><option>数値ルール</option><option>採用方針</option><option>権限</option>
-      </select>
-    </label>
-    <label class="field"><span>方向</span>
-      <select id="m-direction">
-        <option selected>必須</option><option>禁止</option><option>推奨</option>
-      </select>
-    </label>
-    <label class="field"><span>条件（任意）</span><input id="m-condition" type="text"></label>
-    <label class="field"><span>例外（任意）</span><input id="m-exception" type="text"></label>
-    <div class="row">
-      <label class="field grow"><span>数値の指標名（任意）</span><input id="m-metric-label" type="text" placeholder="会議時間"></label>
-      <label class="field grow"><span>数値</span><input id="m-metric-value" type="number" inputmode="decimal"></label>
-      <label class="field grow"><span>単位</span><input id="m-metric-unit" type="text" placeholder="分"></label>
-    </div>
-    <label class="field"><span>効果タグ</span>
-      <select id="m-tag">
-        <option>労働強化</option><option>福利厚生</option><option>顧客絶対</option><option>コスト削減</option>
-        <option>挑戦奨励</option><option>規律統制</option><option>自由裁量</option><option>理念浸透</option>
-      </select>
-    </label>
-    <label class="field"><span>強度</span>
-      <select id="m-strength"><option value="1">1（弱い）</option><option value="2" selected>2（普通）</option><option value="3">3（絶対）</option></select>
-    </label>
-    <label class="field"><span>社員の動き（任意・解釈プレビュー用）</span><input id="m-behavior" type="text"></label>
-    <label class="field"><span>副作用（任意）</span><input id="m-side" type="text"></label>
-    <div class="row">
-      <button id="btn-manual-preview" class="secondary">手入力でプレビュー</button>
-    </div>
-  </details>
+
   <div class="row">
-    <button id="btn-back-from-editor" class="secondary">社長室へもどる</button>
+    <button id="btn-back-from-editor" class="secondary">台帳へもどる</button>
   </div>
 </section>
 
 <!-- 台帳ビューア -->
 <section id="screen-ledger" class="screen">
   <h2>社訓台帳</h2>
-  <h3>効果タグの集計</h3>
-  <pre id="lg-tags" class="preview"></pre>
+  <h3>いま会社に効いている力</h3>
+  <p id="lg-count" class="note"></p>
+  <div id="lg-tags"></div>
   <h3>登録ルール</h3>
   <div id="lg-list"></div>
+  <!-- 造語辞典はM11で一旦凍結（UI非表示。データと効果は内部に残置） -->
+  <div class="hidden">
   <h3>造語辞典</h3>
   <p class="note">社内用語を定義すると結束が高まる一方、外部には通じなくなります。</p>
   <label class="field"><span>用語</span><input id="gl-term" type="text"></label>
@@ -199,7 +167,9 @@
     <button id="btn-gl-add" class="secondary">辞典に登録</button>
   </div>
   <div id="gl-list"></div>
+  </div>
   <div class="row">
+    <button id="btn-lg-to-editor" class="primary">＋ 新しい社訓を書く</button>
     <button id="btn-back-from-ledger" class="secondary">社長室へもどる</button>
   </div>
 </section>
@@ -289,6 +259,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.20"></script>
+<script type="module" src="js/app.js?v=20261102.21"></script>
 </body>
 </html>

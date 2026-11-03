@@ -66,70 +66,102 @@ export function simulateWeek(state, ctx) {
   const emps = next.employees;
   log.push(`― 第${week}週 ―`);
 
-  /* 売上 */
-  const avgFaith = avg(emps, "faith");
-  const faithFactor = 1 + (avgFaith - 50) * PARAMS.faithSalesSlope;
-  let salesFactor = faithFactor;
-  salesFactor *= 1 + 0.05 * eff("労働強化");
-  salesFactor *= 1 + 0.045 * eff("顧客絶対");
-  salesFactor *= 1 + 0.05 * eff("自由裁量");
-  salesFactor *= 1 + 0.01 * eff("規律統制");
-  salesFactor *= 1 + 0.008 * eff("理念浸透");
-  salesFactor *= 1 + 0.02 * eff("挑戦奨励");
-  const baseSales = emps.reduce((s, e) => s + e.ability * PARAMS.salesPerAbility, 0);
-  let sales = baseSales * salesFactor * (0.95 + rng.next() * 0.1);
-  // 挑戦奨励の振れ：当たればボーナス、外せば反動
+  /* 売上と費用（社員ごとに収支を出す：売上＋コストダウン−コスト＝その人の週収支） */
+  let companyFactor = 1;
+  companyFactor *= 1 + 0.075 * eff("労働強化");
+  companyFactor *= 1 + 0.045 * eff("顧客絶対");
+  companyFactor *= 1 + 0.05 * eff("自由裁量");
+  companyFactor *= 1 + 0.01 * eff("規律統制");
+  companyFactor *= 1 + 0.008 * eff("理念浸透");
+  companyFactor *= 1 + 0.02 * eff("挑戦奨励");
+  const noise = 0.95 + rng.next() * 0.1;
+  let challengeMult = 1;
   if (eff("挑戦奨励") > 0) {
     const roll = rng.next();
-    if (roll < 0.3) {
-      sales *= 1.15;
-      log.push("挑戦が当たりました：新規の受注が売上を押し上げました。");
-    } else if (roll > 0.85) {
-      sales *= 0.9;
-      log.push("挑戦が外れました：今週は売上が伸び悩みました。");
-    }
+    if (roll < 0.3) { challengeMult = 1.15; log.push("挑戦が当たりました：新規の受注が売上を押し上げました。"); }
+    else if (roll > 0.85) { challengeMult = 0.9; log.push("挑戦が外れました：今週は売上が伸び悩みました。"); }
+  }
+  const headCount = Math.max(1, emps.length);
+  const extrasTotal = 3 * eff("福利厚生") + 2 * eff("顧客絶対");
+  const baseCost = PARAMS.salaryPerWeek * emps.length + PARAMS.fixedCost;
+  const savingTotal = Math.min(5 * eff("コスト削減"), Math.max(0, baseCost + extrasTotal - baseCost * 0.4));
+  const abilitySum = emps.reduce((s2, e) => s2 + e.ability, 0) || 1;
+  let sales = 0;
+  let cost = 0;
+  for (const e of emps) {
+    const faithF = 1 + (e.faith - 50) * PARAMS.faithSalesSlope;
+    const hpF = e.hp <= 10 ? 0.55 : e.hp <= 20 ? 0.75 : 1;
+    const salesI = e.ability * PARAMS.salesPerAbility * companyFactor * faithF * hpF * noise * challengeMult;
+    const savingI = savingTotal * (e.ability / abilitySum);
+    const costI = PARAMS.salaryPerWeek + PARAMS.fixedCost / headCount + extrasTotal / headCount;
+    e.lastSales = round1(salesI);
+    e.lastSaving = round1(savingI);
+    e.lastCost = round1(costI);
+    e.lastProfit = round1(salesI + savingI - costI);
+    sales += salesI;
+    cost += costI - savingI;
   }
   sales = round1(sales);
-
-  /* 費用 */
-  const baseCost = PARAMS.salaryPerWeek * emps.length + PARAMS.fixedCost;
-  let cost = baseCost + 3 * eff("福利厚生") + 2 * eff("顧客絶対") - 5 * eff("コスト削減");
-  cost = Math.max(cost, baseCost * 0.4);
   cost = round1(cost);
-
   const profit = round1(sales - cost);
   next.funds = round1(next.funds + profit);
   next.lastProfit = profit; // M6：runway表示用（判定には使わない）
   log.push(`売上 ${Math.round(sales)}万円／費用 ${Math.round(cost)}万円／収支 ${profit >= 0 ? "+" : ""}${Math.round(profit)}万円（資金 ${Math.round(next.funds)}万円）`);
+  if (emps.length >= 2) {
+    const sorted = [...emps].sort((a, b) => b.lastProfit - a.lastProfit);
+    const fmt = (v) => `${v >= 0 ? "+" : ""}${Math.round(v)}万円`;
+    log.push(`今週の収支貢献：トップは ${sorted[0].name}（${fmt(sorted[0].lastProfit)}）、ワーストは ${sorted[sorted.length - 1].name}（${fmt(sorted[sorted.length - 1].lastProfit)}）`);
+  }
 
-  /* 社員の状態変化 */
+  /* 社員の状態変化（体力ゲージと信仰度の2軸。不満は信仰度へ吸収、疲労は体力ゲージ化） */
   const contradictionPenalty = (ctx.contradictions || 0) * 6;
   for (const e of emps) {
     const staminaFactor = 1.25 - e.stamina * 0.05;
-    let fatigueDelta = 6 * staminaFactor + 1.2 * eff("労働強化") * staminaFactor - 4 * eff("福利厚生") - 2;
-    e.fatigue = clamp(round1(e.fatigue + fatigueDelta), 0, 100);
-
-    let dissDelta =
-      (e.fatigue - 45) * 0.08 + 1.2 * eff("労働強化") + 1.5 * eff("コスト削減") - 3 * eff("福利厚生") - 0.5 * eff("自由裁量");
-    if (dissDelta > 0) dissDelta *= 1.25 - e.mental * 0.05;
-    e.dissatisfaction = clamp(round1(e.dissatisfaction + dissDelta), 0, 100);
-
+    // 体力：仕事で減り、福利厚生と休息で回復する
+    const hpDelta = -(6 * staminaFactor + 1.2 * eff("労働強化") * staminaFactor) + 4 * eff("福利厚生") + 2 + (e.mental >= 7 ? 1 : 0);
+    e.hp = clamp(round1(e.hp + hpDelta), 0, 100);
+    // 急変（ほどほど）：体調不良と休養
+    const tough = 1.3 - e.stamina * 0.05;
+    if (rng.next() < 0.08 * tough) {
+      const drop = 12 + rng.next() * 10;
+      e.hp = clamp(round1(e.hp - drop), 0, 100);
+      if (drop >= 15 || e.hp <= 25) log.push(`🤒 ${e.name} は体調を崩し、体力が大きく落ちました。`);
+    } else if (e.hp <= 55 && rng.next() < 0.1) {
+      const gain = 10 + rng.next() * 8;
+      e.hp = clamp(round1(e.hp + gain), 0, 100);
+      if (gain >= 14) log.push(`🌿 ${e.name} は休養が効いて、体力が回復しました。`);
+    }
+    // 信仰度：理念と厚生で育ち、無理な働かせ方・コスト削減・矛盾で蝕まれる
     let faithTarget =
       50 +
       6 * eff("理念浸透") +
       Math.min(5, (ctx.glossary || 0) * 1) +
       2 * eff("福利厚生") -
       contradictionPenalty -
-      1.5 * eff("コスト削減") +
+      1.5 * eff("コスト削減") -
+      2 * eff("労働強化") +
       (e.ambition >= 7 ? 3 : 1) * eff("挑戦奨励");
-    const loyaltyFactor = 0.7 + e.loyalty * 0.05;
-    const step = clamp((faithTarget - e.faith) * loyaltyFactor, -6, 6);
+    if (e.hp <= 15) faithTarget -= 10;
+    else if (e.hp <= 30) faithTarget -= 6;
+    const stepFactor = 0.8 + e.mental * 0.03;
+    const step = clamp((faithTarget - e.faith) * stepFactor, -7, 7);
     e.faith = clamp(round1(e.faith + step), 0, 100);
+    // 急変：理不尽な出来事（メンタルが衝撃を吸収する）
+    if (rng.next() < 0.06) {
+      const dropF = (8 + rng.next() * 6) * (1.2 - e.mental * 0.04);
+      e.faith = clamp(round1(e.faith - dropF), 0, 100);
+      if (next.mode !== "black") log.push(`💢 ${e.name} は理不尽な出来事に遭い、信仰度が下がりました。`);
+    }
+    // 野心家の転職思案：信仰が低いと、さらに冷めていく
+    if (e.ambition >= 7 && e.faith <= 35 && rng.next() < 0.25) {
+      e.faith = clamp(round1(e.faith - 5), 0, 100);
+      if (next.mode !== "black") log.push(`🧳 ${e.name} は転職サイトを見ているようです。`);
+    }
   }
 
   /* 評判 */
   let repDelta = 1.2 * eff("顧客絶対") + (50 - next.reputation) * 0.05 - Math.min(2, (ctx.glossary || 0) * 0.2);
-  if (avg(emps, "dissatisfaction") > 60) repDelta -= 1.5;
+  if (avg(emps, "faith") < 40) repDelta -= 1.5;
   next.reputation = clamp(round1(next.reputation + repDelta), 0, 100);
 
   /* 告発リスク（蓄積型：違反の強度×週で増え、是正・時間で減衰） */
@@ -147,18 +179,20 @@ export function simulateWeek(state, ctx) {
     }
   }
 
-  /* 離職判定（疲労・不満が高い社員から。離職コストは年収の50%：Gallup推計） */
+  /* 離職判定（体力の底＝燃え尽き、信仰の崩壊） */
   const quitters = [];
   for (const e of emps) {
     let p = 0;
-    if (e.fatigue >= 85 || e.dissatisfaction >= 80) p = 0.25 + Math.max(e.fatigue - 85, e.dissatisfaction - 80) * 0.01;
-    else if (e.dissatisfaction >= 65) p = 0.05; // 小規模事業所ほど高いベース離職圧（厚労省統計の水準感）
+    if (e.hp <= 10) p = 0.3;
+    else if (e.hp <= 20 && e.mental <= 4) p = 0.12;
+    else if (e.faith <= 15) p = 0.2;
+    else if (e.faith <= 25 && e.hp <= 30) p = 0.1;
     if (p > 0 && rng.next() < p) quitters.push(e);
   }
   for (const q of quitters) {
     next.employees = next.employees.filter((e) => e.id !== q.id);
     next.funds = round1(next.funds - PARAMS.turnoverCost);
-    log.push(`💼 ${q.name} が退職しました（疲労 ${Math.round(q.fatigue)}／不満 ${Math.round(q.dissatisfaction)}）。離職コスト ${PARAMS.turnoverCost}万円（年収の50%相当）。`);
+    log.push(`💼 ${q.name} が退職しました（体力 ${Math.round(q.hp)}／信仰度 ${Math.round(q.faith)}）。離職コスト ${PARAMS.turnoverCost}万円（年収の50%相当）。`);
   }
 
   /* 採用（余裕があり、雰囲気が良ければ紹介採用が進む） */
@@ -167,7 +201,7 @@ export function simulateWeek(state, ctx) {
     next.employees.length < PARAMS.maxEmployeesFounding &&
     next.funds >= 500 &&
     avg(next.employees, "faith") >= 52 &&
-    avg(next.employees, "fatigue") < 60 &&
+    avg(next.employees, "hp") > 40 &&
     week >= 2
   ) {
     const used = new Set(next.employees.map((e) => e.name));
@@ -179,12 +213,11 @@ export function simulateWeek(state, ctx) {
         name,
         ability: 4 + Math.floor(rng.next() * 5),
         stamina: 4 + Math.floor(rng.next() * 6),
-        loyalty: 4 + Math.floor(rng.next() * 6),
         ambition: 3 + Math.floor(rng.next() * 7),
         mental: 4 + Math.floor(rng.next() * 6),
-        fatigue: 5,
-        dissatisfaction: 5,
+        hp: 95,
         faith: 55,
+        lastSales: null, lastSaving: null, lastCost: null, lastProfit: null,
       };
       next.employees.push(hire);
       log.push(`🤝 ${name} が入社しました（紹介採用）。`);
@@ -194,7 +227,7 @@ export function simulateWeek(state, ctx) {
   /* 状態サマリと勝敗 */
   if (next.employees.length) {
     log.push(
-      `社員 ${next.employees.length}人／平均信仰度 ${Math.round(avg(next.employees, "faith"))}／平均疲労 ${Math.round(avg(next.employees, "fatigue"))}／評判 ${Math.round(next.reputation)}`
+      `社員 ${next.employees.length}人／平均信仰度 ${Math.round(avg(next.employees, "faith"))}／平均体力 ${Math.round(avg(next.employees, "hp"))}／評判 ${Math.round(next.reputation)}`
     );
   }
   next.rngState = rng.box.s;
@@ -221,7 +254,7 @@ export function summarize(state) {
     funds: state.funds,
     employees: emps.length,
     avgFaith: emps.length ? round1(avg(emps, "faith")) : 0,
-    avgFatigue: emps.length ? round1(avg(emps, "fatigue")) : 0,
+    avgHp: emps.length ? round1(avg(emps, "hp")) : 0,
     reputation: state.reputation,
     risk: state.risk,
     rules: (state.ledger || []).filter((r) => r.status === "active").length,

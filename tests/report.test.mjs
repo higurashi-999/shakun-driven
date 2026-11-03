@@ -15,7 +15,7 @@ assert.equal(sp.text, "本文です。");
 assert.ok(sp.honne.startsWith("高嶺 澪"));
 assert.equal(splitHonne("本文だけです。").honne, "");
 const picked = pickCommentator([
-  { name: "a", fatigue: 10, dissatisfaction: 10, faith: 50 },
-  { name: "b", fatigue: 90, dissatisfaction: 40, faith: 20 },
+  { name: "a", hp: 90, faith: 50 },
+  { name: "b", hp: 10, faith: 20 },
 ]);
 assert.equal(picked.name, "b");

@@ -21,7 +21,7 @@ export const OPPOSITE_PAIRS = [
   ["コスト削減", "福利厚生"],
 ];
 
-// タグごとの「社員の動き」と「副作用」（LLM由来の behavior / sideEffect が無い場合の定型）
+// タグごとの「社員の動き」と「注意点」（LLM由来の behavior / sideEffect が無い場合の定型）
 export const TAG_BEHAVIOR = {
   "労働強化": { act: "より長く、より速く働こうとします", side: "疲労が溜まりやすくなります" },
   "福利厚生": { act: "休みと待遇を優先して働きます", side: "人件費などのコストがかかります" },
@@ -58,7 +58,7 @@ export function validateRecord(input) {
   const direction = DIRECTIONS.includes(input.direction) ? input.direction : null;
   if (!direction) errors.push(`方向（direction）は ${DIRECTIONS.join("／")} のいずれかです`);
   const tag = TAGS.includes(input.tag) ? input.tag : null;
-  if (!tag) errors.push(`効果タグ（tag）は8種のいずれかです`);
+  if (!tag) errors.push(`効き方（tag）は8種のいずれかです`);
   let strength = Number(input.strength ?? 2);
   if (!Number.isFinite(strength)) strength = 2;
   strength = Math.min(3, Math.max(1, Math.round(strength)));
@@ -180,7 +180,7 @@ export function detectContradictions(candidate, ledger) {
           withId: r.id,
           withText: r.text,
           type: "必須と禁止の衝突",
-          message: `同じ効果タグ（${candidate.tag}）で、既存ルール「${r.text}」と必須／禁止が衝突します`,
+          message: `同じ効き方（${candidate.tag}）で、既存ルール「${r.text}」と必須／禁止が衝突します`,
         });
         continue;
       }
@@ -224,13 +224,13 @@ export function previewText(record, ledger = []) {
   if (record.condition) lines.push(`条件：${record.condition}`);
   if (record.exception) lines.push(`例外：${record.exception}`);
   const side = record.sideEffect || b.side;
-  if (side) lines.push(`副作用：${side}`);
+  if (side) lines.push(`注意点：${side}`);
   const agg = aggregateTags(ledger);
   const opposed = OPPOSITE_PAIRS.filter(([a, c]) => a === record.tag || c === record.tag)
     .map(([a, c]) => (a === record.tag ? c : a))
     .filter((t) => agg[t] && agg[t].count > 0);
   lines.push(
-    `効果タグ：${record.tag}（強度${record.strength}）` +
+    `効き方：${record.tag}（強さ${record.strength}）` +
       (opposed.length ? `／${opposed.join("・")}系の既存社訓と相殺されます` : "")
   );
   return lines.join("\n");

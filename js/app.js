@@ -7,10 +7,9 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.20";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.20";
+} from "./store.js?v=20261102.21";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.21";
 import {
-validateRecord,
 registerRule,
 abolishRule,
 activeRules,
@@ -19,15 +18,15 @@ MAX_ACTIVE_RULES,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.20";
-import { extractRule} from "./extract.js?v=20261102.20";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.20";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.20";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.20";
-import { narrateWeek } from "./report.js?v=20261102.20";
+} from "./ledger.js?v=20261102.21";
+import { extractRule} from "./extract.js?v=20261102.21";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.21";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.21";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.21";
+import { narrateWeek } from "./report.js?v=20261102.21";
 
-import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.20";
-import { TITLE_ART } from "./assets.js?v=20261102.20";
+import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.21";
+import { TITLE_ART } from "./assets.js?v=20261102.21";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -70,6 +69,17 @@ if (state.reputation == null) { state.reputation = 50; changed = true;}
 if (!state.status) { state.status = "playing"; changed = true;}
 if (state.rngState == null) { state.rngState = state.seed; changed = true;}
 if (!Array.isArray(state.eventHistory)) { state.eventHistory = []; changed = true;}
+// M11：モード未保存セーブの移行（モード保存バグのあった期間のセーブは、本人の開始モード＝ブラックとして引き継ぐ）
+if (!state.mode) { state.mode = "black"; changed = true; }
+// M11：社員モデルの2軸化（疲労→体力ゲージ、不満・忠誠は廃止）
+for (const e of state.employees || []) {
+if (e.hp == null) { e.hp = Math.max(0, Math.min(100, 100 - (e.fatigue ?? 20))); changed = true; }
+if ("fatigue" in e) { delete e.fatigue; changed = true; }
+if ("dissatisfaction" in e) { delete e.dissatisfaction; changed = true; }
+if ("loyalty" in e) { delete e.loyalty; changed = true; }
+}
+// M11：1on1セッションは週をまたいだら閉じる
+if (state.oneOnOne && state.oneOnOne.week !== state.week) { state.oneOnOne = null; changed = true; }
 // M10：社訓3枠制への移行（有効が4件以上なら古い順に3件を残す）
 const actives = activeRules(state.ledger || []);
 if (actives.length > MAX_ACTIVE_RULES) {
@@ -81,9 +91,9 @@ if (changed) saveState(state);
 
 /* ---------- 社長室 ---------- */
 function moodOf(e) {
-if (e.fatigue >= 85 || e.dissatisfaction >= 80) return "😵";
-if (e.fatigue >= 65 || e.dissatisfaction >= 60) return "😩";
-if (e.faith >= 65 && e.fatigue < 50) return "😄";
+if (e.hp <= 15 || e.faith <= 25) return "😵";
+if (e.hp <= 35 || e.faith <= 40) return "😩";
+if (e.faith >= 65 && e.hp >= 50) return "😄";
 return "🙂";
 }
 function snapshotOf(s) {
@@ -91,7 +101,7 @@ const n = s.employees.length || 1;
 return {
 funds: s.funds, employees: s.employees.length,
 avgFaith: Math.round((s.employees.reduce((a, e) => a + e.faith, 0) / n) * 10) / 10,
-avgFatigue: Math.round((s.employees.reduce((a, e) => a + e.fatigue, 0) / n) * 10) / 10,
+avgHp: Math.round((s.employees.reduce((a, e) => a + e.hp, 0) / n) * 10) / 10,
 reputation: s.reputation, risk: s.risk,
 };
 }
@@ -103,15 +113,17 @@ state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": 
 $("st-week").textContent = String(Math.min(state.week, 6));
 $("st-funds").textContent = Math.round(state.funds).toLocaleString("ja-JP");
 $("st-employees").textContent = String(state.employees.length);
-$("st-rep").textContent = `${state.reputation}（${state.reputation >= 60 ? "良好" : state.reputation >= 40 ? "普通" : "低迷"}）`;
+$("st-rep").textContent = String(Math.round(state.reputation));
+$("st-rep-word").textContent = state.reputation >= 60 ? "良好" : state.reputation >= 40 ? "普通" : "低迷";
 if (state.mode === "black") $("st-risk-wrap").classList.add("hidden");
 else {
 $("st-risk-wrap").classList.remove("hidden");
-$("st-risk").textContent = `${state.risk}（${state.risk >= 35 ? "危険" : state.risk >= 20 ? "注意" : "安全"}）`;
+$("st-risk").textContent = String(Math.round(state.risk));
+$("st-risk-word").textContent = state.risk >= 35 ? "危険" : state.risk >= 20 ? "注意" : "安全";
 }
 $("funds-note").textContent = state.lastProfit == null ? "" :
 state.lastProfit > 0 ? `直近週の収支：+${Math.round(state.lastProfit)}万円（黒字）` :
-state.lastProfit < 0 ? `直近週の収支：${Math.round(state.lastProfit)}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}週もちます` :
+state.lastProfit < 0 ? (Math.floor(state.funds / -state.lastProfit) > 12 ? `直近週の収支：${Math.round(state.lastProfit)}万円（資金にはまだ余裕があります）` : `直近週の収支：${Math.round(state.lastProfit)}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}週もちます`) :
 "直近週の収支：±0万円";
 const active = activeRules(state.ledger);
 const conflicts = active.filter((r) => (r.contradictions || []).length > 0).length;
@@ -134,7 +146,7 @@ state.status!== "playing" ? "創業期は終了しました。結果画面で最
 "次の山場：あとは6週完走が目標です。退職者を出さず、資金を守り切りましょう。";
 // 初回ガイド（M6）
 const guideSteps = [
-{ label: "社訓を1件、社長命令してみる", done: active.length >= 1 },
+{ label: "社訓を1件、台帳に登録してみる", done: active.length >= 1 },
 { label: "「週を進める」で1週間を回してみる", done: state.week >= 2 },
 { label: "イベントが起きたら社長命令で対応する（静観も立派な選択肢）", done: (state.eventHistory || []).length >= 1 || state.week >= 3 },
 { label: "第4週の融資審査に備える（矛盾ゼロ・資金と信仰度を保つ）", done: !!state.loanDone },
@@ -143,7 +155,7 @@ $("guide-panel").classList.toggle("hidden", !!state.guideClosed || guideSteps.ev
 $("guide-steps").innerHTML = guideSteps.map((g) => `<li class="${g.done ? "done" : ""}">${g.done ? "✓ " : ""}${g.label}</li>`).join("");
 const empList = $("emp-list");
 empList.innerHTML = "";
-const dangerOf = (e) => (e.fatigue >= 85 || e.dissatisfaction >= 80 || e.faith <= 30) ? 2 : (e.fatigue >= 65 || e.dissatisfaction >= 50 || e.faith <= 45) ? 1 : 0;
+const dangerOf = (e) => (e.hp <= 20 || e.faith <= 25) ? 2 : (e.hp <= 40 || e.faith <= 45) ? 1 : 0;
 const orderedEmps = [...state.employees].sort((a, b) => dangerOf(b) - dangerOf(a));
 for (const e of orderedEmps) {
 const card = document.createElement("div");
@@ -153,9 +165,11 @@ name.textContent = e.name;
 card.appendChild(name);
 const meta = document.createElement("p");
 meta.className = "note";
-meta.textContent = state.mode === "black"
-? `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ？？・不満 ？？・信仰度 ${e.faith}`
-: `能力${e.ability}／体力${e.stamina}／忠誠${e.loyalty}／野心${e.ambition} ― 疲労 ${e.fatigue}・不満 ${e.dissatisfaction}・信仰度 ${e.faith}`;
+const dots = (v) => "●".repeat(v) + "○".repeat(10 - v);
+meta.innerHTML = "";
+const dotsLine = document.createElement("span");
+dotsLine.innerHTML = `能力 <span class="dots">${dots(e.ability)}</span> 野心 <span class="dots">${dots(e.ambition)}</span> メンタル <span class="dots">${dots(e.mental)}</span>`;
+meta.appendChild(dotsLine);
 card.appendChild(meta);
 if (state.mode!== "black") name.textContent = `${moodOf(e)} ${e.name}`;
 const meters = document.createElement("div");
@@ -163,22 +177,32 @@ meters.className = "meters";
 const meter = (label, value, kind) => {
 const row = document.createElement("div");
 row.className = "meter-row";
-const lv = kind === "faith" ? (value <= 30 ? "danger" : value < 45 ? "warn" : "safe") : value >= (kind === "fatigue" ? 85 : 80) ? "danger" : value >= (kind === "fatigue" ? 65 : 50) ? "warn" : "safe";
+const lv = value <= (kind === "hp" ? 20 : 30) ? "danger" : value < (kind === "hp" ? 40 : 45) ? "warn" : "safe";
 row.innerHTML = `<span class="meter-label">${label}</span><span class="meter"><span class="meter-fill ${lv}" style="width:${value}%"></span></span><span class="meter-val">${Math.round(value)}</span>`;
 return row;
 };
-if (state.mode!== "black") {
-meters.appendChild(meter("疲労", e.fatigue, "fatigue"));
-meters.appendChild(meter("不満", e.dissatisfaction, "diss"));
+if (state.mode!== "black") meters.appendChild(meter("体力", e.hp, "hp"));
+else {
+const row = document.createElement("div");
+row.className = "meter-row";
+row.innerHTML = `<span class="meter-label">体力</span><span class="note">？？（ブラックでは非表示）</span>`;
+meters.appendChild(row);
 }
 meters.appendChild(meter("信仰", e.faith, "faith"));
 card.appendChild(meters);
-if (state.mode!== "black" && (e.fatigue >= 85 || e.dissatisfaction >= 80)) {
+if (e.lastProfit != null) {
+const prof = document.createElement("p");
+prof.className = "emp-profit";
+const sign = e.lastProfit >= 0 ? "+" : "";
+prof.innerHTML = `先週の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>（売上 ${Math.round(e.lastSales)}＋コストダウン ${Math.round(e.lastSaving)}−コスト ${Math.round(e.lastCost)}）`;
+card.appendChild(prof);
+}
+if (state.mode!== "black" && dangerOf(e) === 2) {
 const b = document.createElement("span");
 b.className = "badge danger";
 b.textContent = "退職圏";
 card.appendChild(b);
-} else if (state.mode!== "black" && (e.fatigue >= 65 || e.dissatisfaction >= 50)) {
+} else if (state.mode!== "black" && dangerOf(e) === 1) {
 const b = document.createElement("span");
 b.className = "badge warn";
 b.textContent = "注意";
@@ -204,7 +228,7 @@ parts.push(`<span class="${good ? "up" : "down"}">${label} ${diff > 0 ? "▲+" +
 };
 dpart("資金", ps.funds, cur.funds, true);
 dpart("平均信仰", ps.avgFaith, cur.avgFaith, true);
-dpart("平均疲労", ps.avgFatigue, cur.avgFatigue, false);
+dpart("平均体力", ps.avgHp, cur.avgHp, true);
 dpart("評判", ps.reputation, cur.reputation, true);
 if (state.mode!== "black") dpart("リスク", ps.risk, cur.risk, false);
 $("report-diff").innerHTML = parts.length ? "前週比：" + parts.join("　") : "";
@@ -230,9 +254,9 @@ moodEl.classList.toggle("hidden", !hasReport);
 if (hasReport) {
 const moodWord = (e) => {
 if (state.mode === "black") return e.faith >= 55 ? ["意欲的", "ok"] : e.faith >= 40 ? ["普通", ""] : ["意欲低下", "warn"];
-if (e.fatigue >= 85 || e.dissatisfaction >= 80 || e.faith <= 30) return ["退職圏", "danger"];
-if (e.fatigue >= 65 || e.dissatisfaction >= 50 || e.faith <= 45) return ["要注意", "warn"];
-if (e.faith >= 65 && e.fatigue < 40) return ["絶好調", "ok"];
+if (e.hp <= 20 || e.faith <= 25) return ["退職圏", "danger"];
+if (e.hp <= 40 || e.faith <= 45) return ["要注意", "warn"];
+if (e.faith >= 65 && e.hp >= 60) return ["絶好調", "ok"];
 return ["安定", "ok"];
 };
 moodEl.innerHTML = "<span class=\"mood-label\">社員の様子</span>" + orderedEmps.map((e) => { const [w, z] = moodWord(e); const f = state.mode === "black" ? "" : moodOf(e) + " "; return `<span class="mood-chip ${z}">${f}${e.name} ― ${w}</span>`; }).join("");
@@ -407,6 +431,7 @@ setLoanStamp(state.loanResult ? state.loanResult.grade : null);
 /* ---------- 1 on 1 ---------- */
 function renderInterview() {
 if (!state) return;
+if (state.oneOnOne && state.oneOnOne.week !== state.week) { state.oneOnOne = null; saveState(state); }
 const session = state.oneOnOne;
 const used = state.oneOnOneWeek === state.week;
 $("iv-picker").classList.toggle("hidden", !!session);
@@ -419,7 +444,7 @@ for (const e of state.employees) {
 const ch = getCharacter(e.id);
 const btn = document.createElement("button");
 btn.className = "iv-emp-btn";
-const stateLine = state.mode === "black" ? "状態の詳細は伏せられています" : `疲労 ${Math.round(e.fatigue)}／不満 ${Math.round(e.dissatisfaction)}／信仰度 ${Math.round(e.faith)}`;
+const stateLine = state.mode === "black" ? "状態の詳細は伏せられています" : `体力 ${Math.round(e.hp)}／信仰度 ${Math.round(e.faith)}`;
 const strong = document.createElement("strong");
 strong.textContent = e.name;
 btn.appendChild(strong);
@@ -453,6 +478,7 @@ const emp = state.employees.find((e) => e.id === empId);
 if (!emp) return;
 const ch = getCharacter(empId);
 state.oneOnOne = {
+week: state.week,
 empId,
 turns: 0,
 points: oneOnOneInitialPoints(emp, ch),
@@ -466,13 +492,16 @@ saveState(state);
 renderInterview();
 }
 
+let ivBusy = false;
 async function onOneOnOneSend() {
-if (!state || !state.oneOnOne || state.oneOnOne.done) return;
+if (ivBusy || !state || !state.oneOnOne || state.oneOnOne.done) return;
 const session = state.oneOnOne;
 const emp = state.employees.find((e) => e.id === session.empId);
 if (!emp) return;
 const text = $("iv-response").value.trim();
 if (!text) return;
+ivBusy = true;
+setIvBusy(true);
 $("iv-response").value = "";
 session.log.push({ who: "me", text });
 session.playerTexts.push(text);
@@ -483,10 +512,12 @@ const ch = getCharacter(session.empId);
 let reply = null;
 let delta = 0;
 try {
-const raw = await callLLM("main", buildOneOnOnePrompt(state, emp, ch, session.log.slice(0, -1), text), { json: true, temperature: 0.7, maxOutputTokens: 300 });
+const raw = await callLLM("lite", buildOneOnOnePrompt(state, emp, ch, session.log.slice(0, -1), text, state.lastReport || []), { json: true, temperature: 0.7, maxOutputTokens: 240 });
 const parsed = parseOneOnOneReply(String(raw));
 if (parsed) { reply = parsed.reply; delta = clampPointDelta(parsed.pointDelta, ch); }
 } catch { /* 定型返答に落とす */ }
+ivBusy = false;
+setIvBusy(false);
 if (!reply) reply = ONE_ON_ONE_FALLBACKS[session.turns % ONE_ON_ONE_FALLBACKS.length];
 session.points += delta;
 session.log.push({ who: "emp", text: reply });
@@ -504,6 +535,15 @@ session.log.push({ who: "sys", text: "（社長は別件対応のため、ここ
 saveState(state);
 finishOneOnOne();
 }
+}
+
+function setIvBusy(busy) {
+for (const id of ["btn-iv-send", "btn-iv-end", "btn-iv-back", "btn-iv-done"]) {
+const el = $(id);
+if (el) el.disabled = busy;
+}
+$("iv-response").disabled = busy;
+$("iv-turns").textContent = busy ? "（相手が考えています…）" : $("iv-turns").textContent;
 }
 
 function finishOneOnOne(reason) {
@@ -535,14 +575,14 @@ $("result-summary").textContent = [
 `経過：${s.weeks} 週`,
 `資金：${Math.round(s.funds)} 万円`,
 `社員：${s.employees} 人`,
-`平均信仰度：${Math.round(s.avgFaith)}／平均疲労：${Math.round(s.avgFatigue)}`,
+`平均信仰度：${Math.round(s.avgFaith)}／平均体力：${Math.round(s.avgHp)}`,
 `評判：${Math.round(s.reputation)}／告発リスク蓄積：${Math.round(s.risk)}`,
 `有効な社訓：${s.rules} 件`,
 "",
 ...(() => {
 const ev2 = evaluateRun(state);
 return state.mode === "black"
-? [`企業価値：${Math.round(ev2.value)}`, `最終スコア：${Math.round(ev2.score)}（ブラック：企業価値のみで評価。疲労・不満・告発リスクはプレイ中非表示でした）`, `ランク：${rankOf(ev2.score).rank} ― ${RANK_TITLES[rankOf(ev2.score).rank]}${rankOf(ev2.score).next ? `（あと ${Math.round(rankOf(ev2.score).next.gap)} 点で ${rankOf(ev2.score).next.rank}）` : "（最高ランクです）"}`]
+? [`企業価値：${Math.round(ev2.value)}`, `最終スコア：${Math.round(ev2.score)}（ブラック：企業価値のみで評価。体力・告発リスクはプレイ中非表示でした）`, `ランク：${rankOf(ev2.score).rank} ― ${RANK_TITLES[rankOf(ev2.score).rank]}${rankOf(ev2.score).next ? `（あと ${Math.round(rankOf(ev2.score).next.gap)} 点で ${rankOf(ev2.score).next.rank}）` : "（最高ランクです）"}`]
 : [`企業価値：${Math.round(ev2.value)}／健全度：${Math.round(ev2.health)}`, `最終スコア：${Math.round(ev2.score)}（ホワイト：企業価値 ×（0.7＋0.3×健全度））`, `ランク：${rankOf(ev2.score).rank} ― ${RANK_TITLES[rankOf(ev2.score).rank]}${rankOf(ev2.score).next ? `（あと ${Math.round(rankOf(ev2.score).next.gap)} 点で ${rankOf(ev2.score).next.rank}）` : "（最高ランクです）"}`];
 })(),
 ].join("\n");
@@ -567,7 +607,7 @@ function recordSummary(r) {
 const lines = [
 `原文：${r.text}`,
 `対象：${r.target}／種別：${r.kind}／方向：${r.direction}`,
-`効果タグ：${r.tag}（強度${r.strength}）／優先度：${r.priority}`,
+`効き方：${r.tag}（強さ${r.strength}）／優先度：${r.priority}`,
 ];
 if (r.metric) lines.push(`数値：${r.metric.label} ${r.metric.value}${r.metric.unit}`);
 if (r.condition) lines.push(`条件：${r.condition}`);
@@ -622,48 +662,15 @@ showDraftPreview();
 } else {
 draft = null;
 $("ed-status").textContent =
-`構造化が安定しませんでした（${result.errors.join("；")}）。手入力フォームに原文を移したので、タグだけ選んで登録できます。`;
-$("m-text").value = text;
-$("manual-form").open = true;
+`構造化が安定しませんでした（${result.errors.join("；")}）。文を少し短くして、もう一度試してください。`;
 }
 } catch (e) {
 draft = null;
 $("ed-status").textContent =
-`構造化できませんでした：${e.message}。APIキーと生成テストの状態を確認するか、手入力フォームを使ってください。`;
-$("m-text").value = text;
+`構造化できませんでした：${e.message}。APIキーの設定と、設定画面の生成テストの状態を確認してください。`;
 } finally {
 btn.disabled = false;
 }
-}
-
-function onManualPreview() {
-if (!requireState()) return;
-const metricLabel = $("m-metric-label").value.trim();
-const metricValue = $("m-metric-value").value;
-const input = {
-text: $("m-text").value,
-target: $("m-target").value,
-kind: $("m-kind").value,
-direction: $("m-direction").value,
-condition: $("m-condition").value,
-exception: $("m-exception").value,
-metric: metricLabel
-? { label: metricLabel, value: Number(metricValue), unit: $("m-metric-unit").value}
-: null,
-tag: $("m-tag").value,
-strength: Number($("m-strength").value),
-priority: 1,
-behavior: $("m-behavior").value,
-sideEffect: $("m-side").value,
-};
-const v = validateRecord(input);
-if (!v.ok) {
-$("ed-status").textContent = `入力を確認してください：${v.errors.join("；")}`;
-return;
-}
-draft = v.record;
-$("ed-status").textContent = "手入力の内容でプレビューします。";
-showDraftPreview();
 }
 
 function onRegister() {
@@ -696,10 +703,18 @@ $("ed-status").textContent = `台帳に登録しました（${entry.id}）。` +
 function renderLedger() {
 if (!state) return;
 const agg = aggregateTags(state.ledger);
-const tagLines = Object.entries(agg)
-.filter(([, v]) => v.count > 0)
-.map(([t, v]) => `${t}：実効 ${v.effective}（登録 ${v.count} 件・素の合計 ${v.raw}）`);
-$("lg-tags").textContent = `有効な社訓 ${activeCount(state)}／${MAX_ACTIVE_RULES}` + (tagLines.length? "\n" + tagLines.join("\n"): "");
+$("lg-count").textContent = `有効な社訓 ${activeCount(state)}／${MAX_ACTIVE_RULES}（台帳には全履歴が残ります）`;
+const tagBox = $("lg-tags");
+tagBox.innerHTML = "";
+const tagRows = Object.entries(agg).filter(([, v]) => v.count > 0);
+if (!tagRows.length) tagBox.innerHTML = '<p class="note">まだ社訓がありません。</p>';
+for (const [t, v] of tagRows) {
+const row = document.createElement("div");
+row.className = "tag-bar-row";
+const w = Math.min(100, Math.abs(v.effective) / 6 * 100);
+row.innerHTML = `<span class="tag-bar-label">${t}</span><span class="tag-bar"><span class="tag-bar-fill ${v.effective < 0 ? "neg" : ""}" style="width:${w}%"></span></span><span>${v.effective > 0 ? "+" : ""}${Math.round(v.effective * 10) / 10}（${v.count}件）</span>`;
+tagBox.appendChild(row);
+}
 const list = $("lg-list");
 list.innerHTML = "";
 if (!state.ledger.length) {
@@ -722,7 +737,7 @@ card.appendChild(head);
 const meta = document.createElement("p");
 meta.className = "note";
 meta.textContent =
-`${r.kind}／${r.direction}／対象：${r.target}／${r.tag}（強度${r.strength}）／第${r.createdWeek}週に登録` +
+`${r.kind}／${r.direction}／対象：${r.target}／効き方：${r.tag}（強さ ${"●".repeat(r.strength)}${"○".repeat(3 - r.strength)}）／第${r.createdWeek}週に登録` +
 (r.metric? `／${r.metric.label} ${r.metric.value}${r.metric.unit}`: "") +
 ((r.contradictions || []).length? `／⚠ 矛盾の記録あり（${r.contradictions.length}件）`: "");
 card.appendChild(meta);
@@ -841,14 +856,14 @@ $("test-result").textContent = "初期化しました。";
 $("btn-back-from-settings").addEventListener("click", () => show("title"));
 
 /* ---------- 社長室・遷移 ---------- */
-$("btn-to-editor").addEventListener("click", () => {
+$("btn-lg-to-editor").addEventListener("click", () => {
 if (requireState()) show("editor");
 });
 $("btn-to-ledger").addEventListener("click", () => {
 if (requireState()) show("ledger");
 });
 $("btn-back-from-office").addEventListener("click", () => show("title"));
-$("btn-back-from-editor").addEventListener("click", () => show("office"));
+$("btn-back-from-editor").addEventListener("click", () => show("ledger"));
 $("btn-back-from-ledger").addEventListener("click", () => show("office"));
 $("btn-advance").addEventListener("click", onAdvance);
 $("btn-ev-respond").addEventListener("click", () => onEventResolve({ type: "respond", text: $("ev-response").value }));
@@ -882,7 +897,6 @@ document.querySelectorAll(".ex-chip").forEach((chip) => {
 chip.addEventListener("click", () => { $("ed-text").value = chip.dataset.ex || ""; });
 });
 $("btn-extract").addEventListener("click", onExtract);
-$("btn-manual-preview").addEventListener("click", onManualPreview);
 $("btn-register").addEventListener("click", onRegister);
 $("btn-gl-add").addEventListener("click", onGlossaryAdd);
 

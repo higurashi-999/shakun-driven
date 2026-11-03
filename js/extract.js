@@ -1,7 +1,7 @@
 // 社訓の構造化：自由文→台帳レコード（JSON）。プロンプト生成・応答パース・スキーマ検証・1回再試行。
 // 検証は ledger.js の validateRecord に委ね、崩れた応答はエラー内容を添えて再試行する。
-import { callLLM } from "./llm.js?v=20261102.20";
-import { validateRecord, TAGS, KINDS, DIRECTIONS } from "./ledger.js?v=20261102.20";
+import { callLLM } from "./llm.js?v=20261102.21";
+import { validateRecord, TAGS, KINDS, DIRECTIONS } from "./ledger.js?v=20261102.21";
 
 export function buildExtractionPrompt(text) {
   return [
@@ -15,11 +15,11 @@ export function buildExtractionPrompt(text) {
     "- condition: 適用条件（無ければ空文字）",
     "- exception: 例外（無ければ空文字）",
     '- metric: 数値ルールが含まれる場合のみ {"label":"指標名","value":数値,"unit":"単位"}、無ければ null',
-    `- tag: 効果タグ8種のうち最も近い1つ：${TAGS.join("／")}`,
+    `- tag: 効き方8種のうち最も近い1つ：${TAGS.join("／")}`,
     "- strength: 効力の強さ 1（弱い）〜3（絶対）",
     "- priority: 優先度 1〜9（通常は1、絶対・最優先と読み取れる場合のみ上げる）",
     "- behavior: 社員がこの社訓を文字どおり（リテラルに）実行したときの具体的な動きを1文で。極端な文字どおり解釈がこのゲームの肝なので、遠慮なく書き切る",
-    "- sideEffect: その副作用を1文で",
+    "- sideEffect: その注意点（裏で起きる困りごと）を1文で",
     "- skit: この社訓が現場で実行される様子を、実在の社員の名前を使わず「ある社員」の形で、セリフ入りの短い寸劇にして2文以内。「文字どおり解釈のズレ」が伝わる書き方で",
     "",
     "例1：",

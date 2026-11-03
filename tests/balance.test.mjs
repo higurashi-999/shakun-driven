@@ -1,4 +1,4 @@
-// 創業期バランス検証：労働強化型は資金で先行するが疲労が危険域に入り、
+// 創業期バランス検証：労働強化型は資金で先行するが体力が危険域に入り、
 // 福利厚生型は信仰度で勝る、という SPEC の反転カーブの創業期側を確認する。
 import assert from "node:assert/strict";
 import { simulateWeek } from "../js/sim.js";
@@ -59,13 +59,13 @@ const laborFunds = average("labor", "funds");
 const noneFunds = average("none", "funds");
 const welfareFaith = average("welfare", "faith");
 const laborFaith = average("labor", "faith");
-const laborFatigue = average("labor", "fatigue");
-const welfareFatigue = average("welfare", "fatigue");
-console.log(`labor funds ${Math.round(laborFunds)} / none ${Math.round(noneFunds)} / faith welfare ${Math.round(welfareFaith)} vs labor ${Math.round(laborFaith)} / fatigue labor ${Math.round(laborFatigue)} vs welfare ${Math.round(welfareFatigue)}`);
+const laborHp = average("labor", "hp");
+const welfareHp = average("welfare", "hp");
+console.log(`labor funds ${Math.round(laborFunds)} / none ${Math.round(noneFunds)} / faith welfare ${Math.round(welfareFaith)} vs labor ${Math.round(laborFaith)} / hp labor ${Math.round(laborHp)} vs welfare ${Math.round(welfareHp)}`);
 
 assert.ok(laborFunds > noneFunds + 30, "創業期は労働強化型が資金で先行する");
 assert.ok(welfareFaith > laborFaith + 10, "福利厚生型は信仰度で大きく勝る");
-assert.ok(laborFatigue > welfareFatigue + 15, "労働強化型は疲労が危険域側に寄る");
+assert.ok(welfareHp > laborHp + 15, "労働強化型は体力が大きく削れる");
 assert.ok(average("labor", "alive") >= 0.9, "労働強化型でも6週での倒産は例外的");
 assert.ok(average("welfare", "alive") >= 0.9);
 assert.ok(average("none", "alive") >= 0.9);

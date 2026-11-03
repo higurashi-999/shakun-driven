@@ -1,12 +1,12 @@
 // 週報ナレーション：シムの素材ログを文章化する（LLM）。不通・失敗時は呼び出し側が素材ログ表示に落とす。
 // 数値判定には関与しない。素材に無い出来事を作らないよう強く制約する。
-import { callLLM } from "./llm.js?v=20261102.20";
+import { callLLM } from "./llm.js?v=20261102.21";
 
 // 本音を言う社員をコード側で決める：状態が一番際立っている人
 export function pickCommentator(employees) {
   if (!employees || !employees.length) return null;
   return [...employees].sort((a, b) =>
-    (b.fatigue + b.dissatisfaction + Math.abs(b.faith - 50)) - (a.fatigue + a.dissatisfaction + Math.abs(a.faith - 50))
+    ((100 - b.hp) + Math.abs(b.faith - 50)) - ((100 - a.hp) + Math.abs(a.faith - 50))
   )[0];
 }
 
@@ -24,7 +24,7 @@ export function buildNarrationPrompt(state, logLines, weekNo) {
     (() => {
       const c = pickCommentator(state.employees);
       if (!c) return "";
-      return `最後に必ず「【本音】${c.name}：」で始まる一文を1つだけ追加すること。これは社員 ${c.name}（疲労${Math.round(c.fatigue)}・不満${Math.round(c.dissatisfaction)}・信仰度${Math.round(c.faith)}、性格の傾向：忠誠${c.loyalty}・野心${c.ambition}・メンタル${c.mental}／各10段階）の、社長には直接言えない本音。少し毒っ気のある本音らしく、ただし数値や出来事は作らないこと。`;
+      return `最後に必ず「【本音】${c.name}：」で始まる一文を1つだけ追加すること。これは社員 ${c.name}（体力${Math.round(c.hp)}・信仰度${Math.round(c.faith)}、性格の傾向：野心${c.ambition}・メンタル${c.mental}／各10段階）の、社長には直接言えない本音。少し毒っ気のある本音らしく、ただし数値や出来事は作らないこと。`;
     })(),
     "素材ログ：",
     ...logLines.map((l) => `- ${l}`),

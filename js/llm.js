@@ -4,7 +4,7 @@
 // 「一覧に出る」ことと「実際に生成できる」ことを分けて、生成テストで実測する。
 // 役割別ルーティング：構造化＝Pro優先（不可ならFlash）／文章・会話＝Flash／軽処理＝Flash-Lite。
 // 失敗時は下位候補へ自動降格する（callLLM）。
-import { getApiKey, incCallCount } from "./store.js?v=20261102.20";
+import { getApiKey, incCallCount } from "./store.js?v=20261102.21";
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const ROUTING_KEY = "shakun-driven-llm-routing";
