@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.14";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.14";
+} from "./store.js?v=20261102.15";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.15";
 import {
 validateRecord,
 registerRule,
@@ -17,15 +17,15 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.14";
-import { extractRule} from "./extract.js?v=20261102.14";
-import { initialEmployees} from "./employees.js?v=20261102.14";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.14";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.14";
-import { narrateWeek } from "./report.js?v=20261102.14";
+} from "./ledger.js?v=20261102.15";
+import { extractRule} from "./extract.js?v=20261102.15";
+import { initialEmployees} from "./employees.js?v=20261102.15";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.15";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.15";
+import { narrateWeek } from "./report.js?v=20261102.15";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.14";
-import { TITLE_ART } from "./assets.js?v=20261102.14";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.15";
+import { TITLE_ART } from "./assets.js?v=20261102.15";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -135,7 +135,9 @@ $("guide-panel").classList.toggle("hidden", !!state.guideClosed || guideSteps.ev
 $("guide-steps").innerHTML = guideSteps.map((g) => `<li class="${g.done ? "done" : ""}">${g.done ? "✓ " : ""}${g.label}</li>`).join("");
 const empList = $("emp-list");
 empList.innerHTML = "";
-for (const e of state.employees) {
+const dangerOf = (e) => (e.fatigue >= 85 || e.dissatisfaction >= 80 || e.faith <= 30) ? 2 : (e.fatigue >= 65 || e.dissatisfaction >= 50 || e.faith <= 45) ? 1 : 0;
+const orderedEmps = [...state.employees].sort((a, b) => dangerOf(b) - dangerOf(a));
+for (const e of orderedEmps) {
 const card = document.createElement("div");
 card.className = "card";
 const name = document.createElement("strong");
@@ -207,6 +209,14 @@ $("report-raw-wrap").classList.remove("hidden");
 } else if (state.lastReport) {
 $("week-report").textContent = state.lastReport.join("\n");
 $("report-raw-wrap").classList.add("hidden");
+}
+const hasReport = !!(state.reportText || state.lastReport);
+$("report-masthead").classList.toggle("hidden", !hasReport);
+if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.week - 1)}号 ― 第${Math.max(1, state.week - 1)}週発行`;
+const circ = $("report-circulation");
+circ.classList.toggle("hidden", !hasReport);
+if (hasReport) {
+circ.innerHTML = "<span class=\"circ-label\">回覧</span>" + state.employees.map((e, i) => `<span class="stamp-circle" style="transform: rotate(${i % 2 ? 5 : -6}deg)">${e.name.slice(0, 1)}<small>済</small></span>`).join("");
 }
 $("btn-advance").disabled = state.status!== "playing";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
@@ -342,6 +352,12 @@ $("ev-result-wrap").classList.remove("hidden");
 }
 
 /* ---------- 融資審査 ---------- */
+function setLoanStamp(grade) {
+const el = $("loan-stamp");
+if (!grade) { el.classList.add("hidden"); return; }
+el.textContent = grade === "不合格" ? "否決" : "可決";
+el.classList.remove("hidden");
+}
 function renderLoan() {
 if (!state) return;
 if (state.loanDone && state.loanResult) {
@@ -349,9 +365,11 @@ const r = state.loanResult;
 $("loan-result").textContent = `【融資審査】スコア ${r.score} ― ${r.grade}` + (r.amount > 0 ? `\n融資 ${r.amount} 万円（金利 ${r.rate}%）が実行済みです。` : "\n今回は融資が通りませんでした。");
 $("loan-intro").classList.add("hidden");
 $("loan-result-wrap").classList.remove("hidden");
+setLoanStamp(r.grade);
 } else {
 $("loan-intro").classList.remove("hidden");
 $("loan-result-wrap").classList.add("hidden");
+setLoanStamp(null);
 }
 }
 
@@ -364,6 +382,7 @@ saveState(state);
 $("loan-result").textContent = res.lines.join("\n");
 $("loan-intro").classList.add("hidden");
 $("loan-result-wrap").classList.remove("hidden");
+setLoanStamp(state.loanResult ? state.loanResult.grade : null);
 }
 
 /* ---------- 面談 ---------- */
@@ -566,7 +585,9 @@ list.innerHTML = "";
 if (!state.ledger.length) {
 list.innerHTML = '<p class="note">登録されたルールはありません。</p>';
 }
+let ruleNo = 0;
 for (const r of state.ledger) {
+ruleNo++;
 const card = document.createElement("div");
 card.className = "card";
 const head = document.createElement("div");
@@ -575,7 +596,7 @@ badge.className = "badge" + (r.status === "active"? "": " off");
 badge.textContent = r.status === "active"? "有効": "廃止";
 head.appendChild(badge);
 const title = document.createElement("strong");
-title.textContent = ` ${r.text}`;
+title.textContent = ` No.${String(ruleNo).padStart(3, "0")} ${r.text}`;
 head.appendChild(title);
 card.appendChild(head);
 const meta = document.createElement("p");

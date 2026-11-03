@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.14">
+<link rel="stylesheet" href="css/style.css?v=20261102.15">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M7.1：タイトル画面の改善）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M8：社内報デザイン）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -95,6 +95,7 @@
     </div>
     <p id="office-note" class="note"></p>
     <h3>週報</h3>
+    <div id="report-masthead" class="report-masthead hidden"></div>
     <div id="report-highlights" class="report-highlights hidden"></div>
     <p id="report-diff" class="report-diff hidden"></p>
     <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
@@ -102,6 +103,7 @@
       <summary>素材ログ（数値の記録）</summary>
       <pre id="week-report-raw" class="preview"></pre>
     </details>
+    <div id="report-circulation" class="circulation hidden"></div>
   </div>
   <div class="row">
     <button id="btn-back-from-office" class="secondary">タイトルへ</button>
@@ -226,6 +228,7 @@
     </div>
   </div>
   <div id="loan-result-wrap" class="hidden">
+    <div id="loan-stamp" class="decision-stamp hidden"></div>
     <pre id="loan-result" class="preview"></pre>
     <div class="row">
       <button id="btn-loan-done" class="primary">週報へ</button>
@@ -267,6 +270,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.14"></script>
+<script type="module" src="js/app.js?v=20261102.15"></script>
 </body>
 </html>

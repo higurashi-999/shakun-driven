@@ -191,3 +191,19 @@ body[data-mode="black"] #title-art { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
 .mode-white { background: #ffffff; border: 2px solid #2f5d50; border-top: 5px solid #2f5d50; color: #23201a; }
 .mode-white small { color: #6f6a5e; }
 .mini-link { display: block; margin: 10px auto 0; background: none; border: none; color: var(--sub); font-size: 13px; padding: 6px 10px; text-decoration: underline; }
+
+/* === M8 社内報デザイン（標準）×ダッシュボード === */
+body { background-image: radial-gradient(rgba(35, 32, 26, .045) 1px, transparent 1.3px); background-size: 7px 7px; }
+body[data-mode="black"] { background-image: radial-gradient(rgba(240, 234, 217, .05) 1px, transparent 1.3px); }
+h2 { border-bottom: 4px double var(--sub); padding-bottom: 6px; }
+.card { box-shadow: 0 1px 2px rgba(35, 32, 26, .07), 0 6px 14px rgba(35, 32, 26, .05); }
+body[data-mode="black"] .card { box-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 14px rgba(0, 0, 0, .3); }
+.status-bar { border-bottom: 3px double rgba(243, 239, 230, .35); }
+.report-masthead { font-family: var(--font-head); text-align: center; letter-spacing: .18em; border-top: 4px double var(--sub); border-bottom: 4px double var(--sub); padding: 6px 0; margin-bottom: 10px; }
+.circulation { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.circ-label { font-family: var(--font-head); border: 1px solid var(--sub); padding: 2px 8px; letter-spacing: .3em; }
+.stamp-circle { width: 42px; height: 42px; border: 2px solid var(--accent); color: var(--accent); border-radius: 50%; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; line-height: 1.1; opacity: .85; }
+.stamp-circle small { font-size: 9px; }
+.decision-stamp { font-family: var(--font-head); font-size: 30px; letter-spacing: .35em; color: var(--accent); border: 3px solid var(--accent); border-radius: 10px; display: inline-block; padding: 4px 14px 4px 20px; transform: rotate(-7deg); margin: 4px 0 12px; opacity: .9; }
+#gl-list .card { border-left: 5px solid var(--accent2); }
+#gl-list .card strong { font-family: var(--font-head); }
