@@ -1,6 +1,6 @@
 // イベントの抽選・判定テスト（node tests/events.test.mjs）
 import assert from "node:assert/strict";
-import { EVENTS, drawEventId, getEvent, resolveEvent, parseEventJudgeResult } from "../js/events.js";
+import { EVENTS, drawEventId, getEvent, resolveEvent, parseEventJudgeResult, SIDE_LIMITS } from "../js/events.js";
 import { initialEmployees } from "../js/employees.js";
 
 function makeState(overrides = {}) {
@@ -32,7 +32,7 @@ function makeState(overrides = {}) {
   assert.ok(noTags.state.funds < 1000);
 }
 
-// 布告文のキーワードが判定を押し上げる
+// 社長命令文のキーワードが判定を押し上げる
 {
   const ev = getEvent("ev-bank-concern");
   const plain = resolveEvent(makeState(), ev, { type: "respond", text: "なんとかします" }, {});
@@ -70,7 +70,7 @@ console.log("EVENTS TESTS OK");
 // --- M5: AI判定のパースと適用 ---
 {
   const parsed = parseEventJudgeResult('{"relevance":2,"specificity":1,"consistency":-1,"rationale":"具体的だが台帳と矛盾"}');
-  assert.deepEqual(parsed, { relevance: 2, specificity: 1, consistency: -1, rationale: "具体的だが台帳と矛盾" });
+  assert.deepEqual(parsed, { relevance: 2, specificity: 1, consistency: -1, rationale: "具体的だが台帳と矛盾", sideEffects: [], effectReason: "" });
   assert.equal(parseEventJudgeResult("判定できません"), null);
   assert.equal(parseEventJudgeResult('{"relevance":"x"}'), null);
   const clamped = parseEventJudgeResult('{"relevance":9,"specificity":-3,"consistency":5,"rationale":"r"}');
@@ -79,20 +79,20 @@ console.log("EVENTS TESTS OK");
   assert.equal(clamped.consistency, 1);
 }
 {
-  // AI判定あり：関連性が高く具体的な布告は、タグがなくても成功する
+  // AI判定あり：関連性が高く具体的な社長命令は、タグがなくても成功する
   const s = makeState();
   const ev = getEvent("ev-server-down");
   const res = resolveEvent(s, ev, { type: "respond", text: "CTOを責任者に復旧手順を共有し、30分ごとに全社へ進捗を出す" }, {}, 0,
     { relevance: 2, specificity: 2, consistency: 0, rationale: "正面から具体的に向き合っている" });
   assert.equal(res.grade, "成功");
   assert.ok(res.lines.some((l) => l.startsWith("AI判定：")));
-  // 的外れな布告はタグが強くても成功にならない
+  // 的外れな社長命令はタグが強くても成功にならない
   const res2 = resolveEvent(s, ev, { type: "respond", text: "頑張ります" }, { "規律統制": 5 }, 0,
     { relevance: 0, specificity: 0, consistency: 0, rationale: "イベントに触れていない" });
   assert.notEqual(res2.grade, "成功");
 }
 
-// --- M5.2: 「無視」のような放棄は静観扱い／対策のない布告はAI経路で失敗上限 ---
+// --- M5.2: 「無視」のような放棄は静観扱い／対策のない社長命令はAI経路で失敗上限 ---
 {
   const s = makeState();
   const ev = getEvent("ev-labor-crackdown") || EVENTS.find((e) => e.category === "法改正・規制");
@@ -105,3 +105,23 @@ console.log("EVENTS TESTS OK");
     { relevance: 2, specificity: 0, consistency: 0, rationale: "正面から向き合っている" });
   assert.notEqual(okRes.grade, "失敗");
 }
+
+// --- M9：社長命令の副作用（パースのクランプと適用） ---
+const parsed = parseEventJudgeResult('{"relevance":2,"specificity":1,"consistency":0,"rationale":"ok","sideEffects":[{"key":"funds","value":-999},{"key":"faith","value":3},{"key":"unknown","value":5},{"key":"risk","value":0}],"effectReason":"臨時対応費"}');
+assert.equal(parsed.sideEffects.length, 2, "不正キーと0は除外される");
+assert.equal(parsed.sideEffects[0].value, -SIDE_LIMITS.funds, "資金は下限にクランプされる");
+assert.equal(parsed.sideEffects[1].value, 3);
+const ev9 = EVENTS.find((e) => e.id === "ev-server-down");
+const judge9 = { relevance: 2, specificity: 1, consistency: 0, rationale: "x", sideEffects: [{ key: "funds", value: -20 }, { key: "faith", value: 5 }], effectReason: "対応費と感謝" };
+const before9 = initialEmployees();
+const r9 = resolveEvent(makeState(), ev9, { type: "respond", text: "復旧手順を実施" }, {}, 0, judge9);
+assert.ok(r9.lines.some((l) => l.includes("社長命令の副作用")), "副作用の行が出る");
+assert.equal(r9.state.funds, Math.round((1000 + (r9.effects.funds || 0) - 20) * 10) / 10, "資金の副作用が適用される");
+r9.state.employees.forEach((e, i) => {
+  const want = Math.min(100, Math.max(0, before9[i].faith + (r9.effects.faithAll || 0) + 5));
+  assert.equal(e.faith, want, "信仰の副作用が全員に適用される");
+});
+const judgeNg = { ...judge9, relevance: 0 };
+const rNg = resolveEvent(makeState(), ev9, { type: "respond", text: "がんばれ" }, {}, 0, judgeNg);
+assert.ok(!rNg.lines.some((l) => l.includes("社長命令の副作用")), "無関係な命令には副作用が付かない");
+console.log("EVENTS TESTS OK");

@@ -1,11 +1,12 @@
 // ランダムイベント（創業期12種）：抽選・兆し・対応判定・効果適用。
-// 判定は台帳のタグ（フェーズ調整済みの実効値）と布告文のキーワードで行うコード判定。
+// 判定は台帳のタグ（フェーズ調整済みの実効値）と社長命令文のキーワードで行うコード判定。
 // 抽選は seed と週から決定的に引く（再現性を sim の乱数列と分離して保つ）。
 export const EVENTS = [
 {
 id: "ev-client-bankrupt",
 category: "市場・経済",
 title: "取引先の倒産の噂",
+hype: "業界紙がざわつく！売掛金は無事か？",
 body: "主要な取引先の経営が危ないという噂が業界紙を賑わせています。売掛金の回収に備えるかどうかが問われます。",
 omen: "業界紙が「地場大手の資金繰り悪化」を小さく報じています。",
 goodTags: ["コスト削減", "規律統制"],
@@ -20,6 +21,7 @@ failText: "取引先が倒産し、売掛金60万円が回収不能になりま�
 id: "ev-cost-spike",
 category: "市場・経済",
 title: "仕入れ価格の高騰",
+hype: "仕入れ値がうなぎ登り！利益を守れるか",
 body: "原材料と仕入れ価格が一斉に上がりました。価格転嫁か、コスト削減か、判断が必要です。",
 omen: "仕入れ先から「来月から値上げ」の案内が届き始めています。",
 goodTags: ["コスト削減"],
@@ -34,6 +36,7 @@ failText: "高騰分を吸収できず、35万円の追加コストが発生し�
 id: "ev-big-client",
 category: "取引先",
 title: "大口クライアントの無茶な納期",
+hype: "無茶ぶり発動！社員は応えられるか",
 body: "大口の取引先が、通常の半分の納期で納品してほしいと言ってきました。受けるかどうかは会社の姿勢次第です。",
 omen: null,
 goodTags: ["顧客絶対", "挑戦奨励"],
@@ -48,6 +51,7 @@ failText: "納期を断ったことで、取引先との関係が冷えました
 id: "ev-late-payment",
 category: "取引先",
 title: "請求書の支払い遅延",
+hype: "入金が来ない！資金繰りに黄色信号",
 body: "取引先からの入金が遅れています。契約と請求の管理が問われます。",
 omen: null,
 goodTags: ["規律統制"],
@@ -62,6 +66,7 @@ failText: "対応が後手に回り、資金繰りが25万円分苦しくなり�
 id: "ev-poaching",
 category: "人材市場",
 title: "競合からの引き抜きの噂",
+hype: "エースに触手！？引き留めなるか",
 body: "競合他社がうちの社員に声をかけているという噂があります。引き留められるかどうかは、日頃の待遇と結束次第です。",
 omen: "社員の一人が、昼休みに誰かと長電話をしていました。",
 goodTags: ["福利厚生", "理念浸透"],
@@ -76,6 +81,7 @@ failText: "引き抜きの噂で社内がざわつき、会社への信頼が揺
 id: "ev-applicants",
 category: "人材市場",
 title: "採用応募が殺到",
+hype: "応募ドッサリ！玉石混交を見極めよ",
 body: "求人への応募が殺到しました。玉石混交の中から見極められるかは、選考の基準があるかどうかです。",
 omen: null,
 goodTags: ["規律統制"],
@@ -90,6 +96,7 @@ failText: "選考が場当たり的になり、対応に追われて現場が疲
 id: "ev-labor-inspection",
 category: "法改正・規制",
 title: "労働時間の取り締まり強化",
+hype: "労基の目が光る！記録は大丈夫か",
 body: "労働基準監督署が労働時間の取り締まりを強化しているというニュースです。残業の多い会社ほど危うくなります。",
 omen: "ニュースが「労基署、労働時間の取り締まり強化」と伝えています。",
 goodTags: ["規律統制", "福利厚生"],
@@ -104,6 +111,7 @@ failText: "是正対応に追われ30万円の支出。告発リスクも高ま�
 id: "ev-mail-leak",
 category: "社内事故・不祥事",
 title: "メールの誤送信",
+hype: "宛先ミスで大騒ぎ！初動が命",
 body: "社員が顧客情報を含むメールを誤送信しかけました。手順と確認の文化があるかどうかが問われます。",
 omen: null,
 goodTags: ["規律統制"],
@@ -118,6 +126,7 @@ failText: "誤送信が外部に伝わり、謝罪と対応で20万円の支出�
 id: "ev-burnout",
 category: "社内事故・不祥事",
 title: "徹夜明けの社員が体調不良",
+hype: "倒れる前に止められるか",
 body: "忙しさが続いた社員が体調を崩しました。休ませる文化があるかどうかが問われます。",
 omen: null,
 goodTags: ["福利厚生"],
@@ -132,6 +141,7 @@ failText: "無理をさせたことが知られ、社内の空気が悪化しま
 id: "ev-server-down",
 category: "システム・災害",
 title: "サーバートラブルで半日停止",
+hype: "システム停止！復旧を急げ",
 body: "基幹システムが止まり、業務が半日止まりました。備えと現場の機転が問われます。",
 omen: null,
 goodTags: ["規律統制", "挑戦奨励"],
@@ -146,6 +156,7 @@ failText: "復旧が長引き、機会損失と対応で40万円の損害が出�
 id: "ev-sns-buzz",
 category: "メディア・評判",
 title: "SNSで社訓が話題に",
+hype: "バズる社訓！追い風か炎上か",
 body: "うちの社訓がSNSで「カルトっぽいけど面白い」と賛否両論で拡散されています。理念が本物かどうかが見られています。",
 omen: null,
 goodTags: ["理念浸透"],
@@ -161,6 +172,7 @@ glossaryAmplify: true, // 造語が多いほど賛否の振れ幅が大きくな
 id: "ev-bank-concern",
 category: "ステークホルダー",
 title: "銀行担当者の懸念",
+hype: "銀行の視線が厳しい！信用を守れ",
 body: "取引銀行の担当者が、資金繰りの見通しについて説明を求めてきました。数字の管理が見られています。",
 omen: "銀行から「来週、資金繰り表を見せてほしい」と連絡がありました。",
 goodTags: ["規律統制", "コスト削減"],
@@ -226,7 +238,7 @@ const abandoned = action.type === "respond" && /無視|静観|放置|何もし�
 if (action.type === "ignore" || abandoned) {
 grade = "静観";
 effects = scaleEffects(event.fail, 0.7);
-if (abandoned) lines.push(`対応の布告：${action.text}（実質的に静観として扱われました）`);
+if (abandoned) lines.push(`対応の社長命令：${action.text}（実質的に静観として扱われました）`);
 lines.push("対応せず静観しました。");
 lines.push(event.failText);
 } else {
@@ -240,8 +252,8 @@ score = tagScore + aiJudge.relevance + aiJudge.specificity * 0.5 + (aiJudge.cons
 if (score >= 2) grade = "成功";
 else if (score >= 0.5) grade = "部分成功";
 else grade = "失敗";
-if (aiJudge.relevance === 0 && grade === "成功") grade = "部分成功"; // 的外れな布告は成功にしない
-if (aiJudge.relevance + aiJudge.specificity <= 1) grade = "失敗"; // 対策らしい内容がない布告は、台帳の備えだけでは部分成功にもならない
+if (aiJudge.relevance === 0 && grade === "成功") grade = "部分成功"; // 的外れな社長命令は成功にしない
+if (aiJudge.relevance + aiJudge.specificity <= 1) grade = "失敗"; // 対策らしい内容がない社長命令は、台帳の備えだけでは部分成功にもならない
 } else {
 score = tagScore;
 if (action.text && action.text.trim()) score += 0.5;
@@ -251,7 +263,7 @@ else if (score >= 0.5) grade = "部分成功";
 else grade = "失敗";
 }
 effects = grade === "成功"? {...event.success}: grade === "部分成功"? mixEffects(event.success, event.fail): {...event.fail};
-lines.push(`対応の布告：${action.text || "（文面なし）"}`);
+lines.push(`対応の社長命令：${action.text || "（文面なし）"}`);
 if (aiJudge) lines.push(`AI判定：${aiJudge.rationale}（関連性 ${aiJudge.relevance}/2、具体性 ${aiJudge.specificity}/2、台帳整合性 ${aiJudge.consistency > 0 ? "あり" : aiJudge.consistency < 0 ? "矛盾あり" : "中立"}、スコア ${Math.round(score * 10) / 10}）`);
 lines.push(grade === "失敗"? event.failText: event.successText);
 if (grade === "部分成功") lines.push("ただし備えが十分ではなく、効果は限定的でした。");
@@ -276,6 +288,19 @@ if (effects.fatigueAll) summary.push(`全員の疲労${effects.fatigueAll > 0? "
 if (effects.faithAll) summary.push(`全員の信仰度${effects.faithAll > 0? "+": ""}${effects.faithAll}`);
 if (effects.risk && state.mode !== "black") summary.push(`告発リスク${effects.risk > 0? "+": ""}${effects.risk}`); // ブラックでは非表示
 lines.push(`結果：${grade}${summary.length? `（${summary.join("、")}）`: ""}`);
+// 社長命令の副作用：AI提案を適用する（静観と無関係な命令には付けない）
+const side = aiJudge && grade !== "静観" && aiJudge.relevance >= 1 ? (aiJudge.sideEffects || []) : [];
+if (side.length) {
+const ssum = [];
+for (const ef of side) {
+if (ef.key === "funds") { next.funds = Math.round((next.funds + ef.value) * 10) / 10; ssum.push(`資金${ef.value > 0 ? "+" : ""}${ef.value}万円`); }
+if (ef.key === "reputation") { next.reputation = clamp(next.reputation + ef.value, 0, 100); ssum.push(`評判${ef.value > 0 ? "+" : ""}${ef.value}`); }
+if (ef.key === "risk") { next.risk = clamp(next.risk + ef.value, 0, 100); if (state.mode !== "black") ssum.push(`告発リスク${ef.value > 0 ? "+" : ""}${ef.value}`); }
+if (ef.key === "faith") { for (const e of next.employees) e.faith = clamp(e.faith + ef.value, 0, 100); ssum.push(`全員の信仰度${ef.value > 0 ? "+" : ""}${ef.value}`); }
+if (ef.key === "fatigue") { for (const e of next.employees) e.fatigue = clamp(e.fatigue + ef.value, 0, 100); ssum.push(`全員の疲労${ef.value > 0 ? "+" : ""}${ef.value}`); }
+}
+if (ssum.length) lines.push(`社長命令の副作用：${ssum.join("、")}${aiJudge.effectReason ? ` ― ${aiJudge.effectReason}` : ""}`);
+}
 if (next.funds < 0 && next.status === "playing") {
 next.status = "bankrupt";
 lines.push("💸 イベント対応の結果、資金が枯渇しました。会社は倒産です。");
@@ -283,13 +308,13 @@ lines.push("💸 イベント対応の結果、資金が枯渇しました。会
 return { state: next, lines, grade, effects};
 }
 
-// 生成AIによる布告判定のプロンプト。判定材料（イベント・布告文・台帳）を渡し、JSONだけを返させる。
+// 生成AIによる社長命令判定のプロンプト。判定材料（イベント・社長命令文・台帳）を渡し、JSONだけを返させる。
 export function buildEventJudgePrompt(state, event, responseText) {
 const rules = (state.ledger || []).filter((r) => r.status === "active").map((r) => `・${r.text}（タグ：${r.tag}）`).join("\n") || "（社訓なし）";
 return [
-"あなたは会社経営ゲームの判定AIです。発生したイベントへの社長の対応（布告）を評価し、JSONだけを出力してください。説明文は不要です。",
+"あなたは会社経営ゲームの判定AIです。発生したイベントへの社長の対応（社長命令）を評価し、JSONだけを出力してください。説明文は不要です。",
 `【イベント】${event.title}：${event.text}`,
-`【社長の対応（布告）】${responseText}`,
+`【社長の対応（社長命令）】${responseText}`,
 "【現在の社訓台帳】",
 rules,
 "評価基準：",
@@ -297,7 +322,9 @@ rules,
 "- specificity（0〜2の整数）：具体策があるか。精神論だけなら0、やや具体的なら1、担当・期限・数値など具体的手段があるなら2。",
 "- consistency（-1, 0, 1のいずれか）：台帳の社訓と矛盾する対応なら-1、無関係なら0、台帳の方針に沿う・活かす対応なら1。",
 '- rationale：判定理由を日本語で40字以内の一文。',
-'出力形式：{"relevance":2,"specificity":1,"consistency":0,"rationale":"理由"}',
+"- sideEffects（0〜2件の配列）：対応のやり方から自然に生じる副次的な影響だけを提案する。キーは funds（万円、-30〜30）／faith（全員の信仰度、-8〜8）／fatigue（全員の疲労、-10〜10）／reputation（評判、-5〜5）／risk（告発リスク、-8〜8）。費用・負担・評判への影響が読み取れない対応では空配列にする。イベント自体の成否による効果は含めない。",
+"- effectReason：副作用の理由を日本語で40字以内の一文（副作用がない場合は空文字）。",
+'出力形式：{"relevance":2,"specificity":1,"consistency":0,"rationale":"理由","sideEffects":[{"key":"funds","value":-20}],"effectReason":"理由"}',
 ].join("\n");
 }
 
@@ -312,10 +339,24 @@ try { obj = JSON.parse(m[0]); } catch { return null; }
 if (!obj || typeof obj !== "object") return null;
 const rel = Number(obj.relevance), spec = Number(obj.specificity), cons = Number(obj.consistency);
 if (![rel, spec, cons].every(Number.isFinite)) return null;
+const sideEffects = [];
+if (Array.isArray(obj.sideEffects)) {
+for (const ef of obj.sideEffects.slice(0, 2)) {
+if (!ef || !(ef.key in SIDE_LIMITS)) continue;
+const v = Math.round(Number(ef.value));
+if (!Number.isFinite(v) || v === 0) continue;
+sideEffects.push({ key: ef.key, value: Math.min(SIDE_LIMITS[ef.key], Math.max(-SIDE_LIMITS[ef.key], v)) });
+}
+}
 return {
 relevance: Math.min(2, Math.max(0, Math.round(rel))),
 specificity: Math.min(2, Math.max(0, Math.round(spec))),
 consistency: cons > 0 ? 1 : cons < 0 ? -1 : 0,
 rationale: String(obj.rationale || "AI判定").slice(0, 80),
+sideEffects,
+effectReason: String(obj.effectReason || "").slice(0, 60),
 };
 }
+
+// 社長命令の副作用の上限（コード側の許可範囲）。LLMの提案はこの範囲に必ず切り詰める。
+export const SIDE_LIMITS = { funds: 30, faith: 8, fatigue: 10, reputation: 5, risk: 8 };

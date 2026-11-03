@@ -151,7 +151,7 @@ h1, h2, h3 { font-family: var(--font-head); }
 #title-art { width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: 0 4px 18px rgba(35, 32, 26, .18); }
 .title-block { margin-bottom: 14px; }
 /* 「布告する」ボタンは判子風の印を添える */
-#btn-to-editor::before { content: "布"; display: inline-block; background: #fdfaf2; color: var(--accent); border-radius: 4px; padding: 0 6px; margin-right: 8px; font-weight: 700; }
+#btn-to-editor::before { content: "令"; display: inline-block; background: #fdfaf2; color: var(--accent); border-radius: 4px; padding: 0 6px; margin-right: 8px; font-weight: 700; }
 /* イベント画面：カテゴリ帯 */
 #screen-event h2 { border-left: 6px solid var(--accent); padding-left: 10px; }
 #ev-category { display: inline-block; background: var(--ink); color: var(--bg); padding: 3px 10px; border-radius: 4px; }
@@ -211,3 +211,8 @@ body[data-mode="black"] .card { box-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 1
 .mood-chip.ok { color: var(--good); border-color: var(--good); }
 .mood-chip.warn { color: #c98a1b; border-color: #c98a1b; }
 .mood-chip.danger { color: var(--bad); border-color: var(--bad); font-weight: 700; }
+
+/* === M9 本音・煽り === */
+.report-honne { border: 1px dashed var(--sub); border-radius: 8px; padding: 8px 10px; margin-top: 10px; background: var(--highlight-bg); }
+.report-honne .honne-label { font-family: var(--font-head); font-size: 12px; letter-spacing: .14em; color: var(--sub); display: block; margin-bottom: 2px; }
+.ev-hype { color: var(--accent); font-weight: 700; margin: 2px 0 8px; }

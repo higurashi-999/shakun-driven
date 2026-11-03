@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.18">
+<link rel="stylesheet" href="css/style.css?v=20261102.19">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M8.2.1：様子欄の描画修正）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M9：社長命令と副作用）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -80,7 +80,7 @@
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
     <div class="row">
-      <button id="btn-to-editor" class="primary">布告する（社訓を書く）</button>
+      <button id="btn-to-editor" class="primary">社訓を書く</button>
       <button id="btn-to-ledger" class="secondary">台帳を見る</button>
     </div>
     <h3>社員</h3>
@@ -103,6 +103,7 @@
       <summary>素材ログ（数値の記録）</summary>
       <pre id="week-report-raw" class="preview"></pre>
     </details>
+    <div id="report-honne" class="report-honne hidden"><span class="honne-label">社員の本音</span><span id="report-honne-text"></span></div>
     <div id="report-mood" class="mood-strip hidden"></div>
   </div>
   <div class="row">
@@ -110,9 +111,9 @@
   </div>
 </section>
 
-<!-- 布告エディタ -->
+<!-- 社訓エディタ -->
 <section id="screen-editor" class="screen">
-  <h2>布告エディタ</h2>
+  <h2>社訓エディタ</h2>
   <p class="note">社訓・就業規則・経営方針を自由文で書いてください。AIが構造化し、社員がどう動くかをプレビューします。</p>
   <label class="field">
     <span>社訓・ルール（自由文）</span>
@@ -196,16 +197,17 @@
 <!-- イベント -->
 <section id="screen-event" class="screen">
   <h2 id="ev-title">イベント</h2>
+  <p id="ev-hype" class="ev-hype hidden"></p>
   <p id="ev-category" class="note"></p>
   <p id="ev-body"></p>
   <p id="ev-hint" class="note"></p>
   <div id="ev-action-wrap">
     <label class="field">
-      <span>対応の布告（自由文）</span>
+      <span>対応の社長命令（自由文）</span>
       <textarea id="ev-response" rows="3" placeholder="どう対応するか、社長として一言"></textarea>
     </label>
     <div class="row">
-      <button id="btn-ev-respond" class="primary">対応を布告する</button>
+      <button id="btn-ev-respond" class="primary">社長命令を出す</button>
       <button id="btn-ev-ignore" class="secondary">静観する</button>
     </div>
     <p class="note">静観は正式な選択肢です。被害は出ますが、余計なリスクは増えません。</p>
@@ -270,6 +272,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.18"></script>
+<script type="module" src="js/app.js?v=20261102.19"></script>
 </body>
 </html>

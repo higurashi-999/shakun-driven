@@ -100,7 +100,7 @@ export function simulateWeek(state, ctx) {
   const profit = round1(sales - cost);
   next.funds = round1(next.funds + profit);
   next.lastProfit = profit; // M6：runway表示用（判定には使わない）
-  log.push(`売上 ${sales}万円／費用 ${cost}万円／収支 ${profit >= 0 ? "+" : ""}${profit}万円（資金 ${next.funds}万円）`);
+  log.push(`売上 ${Math.round(sales)}万円／費用 ${Math.round(cost)}万円／収支 ${profit >= 0 ? "+" : ""}${Math.round(profit)}万円（資金 ${Math.round(next.funds)}万円）`);
 
   /* 社員の状態変化 */
   const contradictionPenalty = (ctx.contradictions || 0) * 6;
@@ -143,7 +143,7 @@ export function simulateWeek(state, ctx) {
       next.risk = clamp(round1(next.risk * 0.5), 0, 100);
       log.push("⚠ 内部通報がありました：是正対応で50万円を支出し、評判が下がりました。");
     } else {
-      if (next.mode !== "black") log.push(`⚠ 告発リスクが高まっています（蓄積 ${next.risk}）。社訓の改訂で是正できます。`); // ブラックでは非表示
+      if (next.mode !== "black") log.push(`⚠ 告発リスクが高まっています（蓄積 ${Math.round(next.risk)}）。社訓の改訂で是正できます。`); // ブラックでは非表示
     }
   }
 
@@ -158,7 +158,7 @@ export function simulateWeek(state, ctx) {
   for (const q of quitters) {
     next.employees = next.employees.filter((e) => e.id !== q.id);
     next.funds = round1(next.funds - PARAMS.turnoverCost);
-    log.push(`💼 ${q.name} が退職しました（疲労 ${q.fatigue}／不満 ${q.dissatisfaction}）。離職コスト ${PARAMS.turnoverCost}万円（年収の50%相当）。`);
+    log.push(`💼 ${q.name} が退職しました（疲労 ${Math.round(q.fatigue)}／不満 ${Math.round(q.dissatisfaction)}）。離職コスト ${PARAMS.turnoverCost}万円（年収の50%相当）。`);
   }
 
   /* 採用（余裕があり、雰囲気が良ければ紹介採用が進む） */
@@ -194,7 +194,7 @@ export function simulateWeek(state, ctx) {
   /* 状態サマリと勝敗 */
   if (next.employees.length) {
     log.push(
-      `社員 ${next.employees.length}人／平均信仰度 ${round1(avg(next.employees, "faith"))}／平均疲労 ${round1(avg(next.employees, "fatigue"))}／評判 ${next.reputation}`
+      `社員 ${next.employees.length}人／平均信仰度 ${Math.round(avg(next.employees, "faith"))}／平均疲労 ${Math.round(avg(next.employees, "fatigue"))}／評判 ${Math.round(next.reputation)}`
     );
   }
   next.rngState = rng.box.s;
