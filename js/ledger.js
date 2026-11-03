@@ -84,6 +84,7 @@ export function validateRecord(input) {
       priority,
       behavior: str(input.behavior),
       sideEffect: str(input.sideEffect),
+      skit: str(input.skit),
     },
   };
 }
@@ -204,11 +205,19 @@ export function detectContradictions(candidate, ledger) {
 }
 
 // 解釈プレビュー：社員がどう動くかを文章化する（LLM由来の behavior があれば優先）
+// 有効な社訓の上限（M10：社訓3枠制）
+export const MAX_ACTIVE_RULES = 3;
+
+export function activeCount(state) {
+  return (state.ledger || []).filter((r) => r.status === "active").length;
+}
+
 export function previewText(record, ledger = []) {
   const lines = [];
   const b = TAG_BEHAVIOR[record.tag] || { act: "", side: "" };
   const behavior = record.behavior || `${record.target}は「${record.text}」を${record.direction}として実行し、${b.act}。`;
   lines.push(`社員はこう動きます：${behavior}`);
+  if (record.skit) lines.push(`現場の寸劇：${record.skit}`);
   if (record.metric) {
     lines.push(`数値ルール「${record.metric.label}：${record.metric.value}${record.metric.unit}」は、例外場面でも原則どおり厳密に適用されます。`);
   }

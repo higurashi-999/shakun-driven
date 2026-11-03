@@ -131,3 +131,30 @@ console.log("SCENES TESTS OK");
   assert.equal(rankOf(1000).rank, "D");
   assert.deepEqual(rankOf(1000).next, { rank: "C", gap: 200 });
 }
+
+// --- M10：1 on 1 ---
+import { oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, hasPressure, parseOneOnOneReply } from "../js/scenes.js";
+import { getCharacter } from "../js/employees.js";
+const baseEmp = { id: "emp-3", name: "桐生 葵", fatigue: 20, dissatisfaction: 15, faith: 45 };
+const pts = oneOnOneInitialPoints(baseEmp, getCharacter("emp-3"));
+assert.ok(pts >= 15 && pts <= 90, "初期ポイントは範囲内");
+const tired = oneOnOneInitialPoints({ ...baseEmp, fatigue: 95, dissatisfaction: 90, faith: 10 }, getCharacter("emp-3"));
+assert.ok(tired < pts, "疲労と不満が高いと初期ポイントは下がる");
+assert.equal(clampPointDelta(-999, getCharacter("emp-5")), -25, "振れ幅でクランプ（八雲は25）");
+assert.equal(clampPointDelta(999, getCharacter("emp-5")), 10, "プラス側は一律+10まで");
+assert.ok(hasPressure(["もう辞めてもらって構いません"]));
+assert.ok(!hasPressure(["いつもありがとう"]));
+const st1 = { mode: "white", week: 2, funds: 1000, reputation: 50, risk: 0, status: "playing", employees: [{ ...baseEmp }], ledger: [] };
+const quit = judgeOneOnOne(st1, "emp-3", { points: 0, playerTexts: ["辞めてもらって構いません"] });
+assert.equal(quit.outcome, "pushout");
+assert.equal(quit.state.employees.length, 0, "退職で社員が減る");
+assert.ok(quit.state.reputation < 50, "評判が下がる");
+const burnout = judgeOneOnOne(st1, "emp-3", { points: 0, playerTexts: ["大丈夫ですか"] });
+assert.equal(burnout.outcome, "burnout-quit");
+assert.ok(burnout.state.funds > quit.state.funds, "圧なし退職のほうが費用は軽い");
+const mot = judgeOneOnOne(st1, "emp-3", { points: 80, playerTexts: ["君の成果は大きい"] });
+assert.equal(mot.outcome, "motivated");
+assert.equal(mot.state.employees[0].faith, 53, "信仰+8（45→53）");
+const parsedReply = parseOneOnOneReply('{"reply":"ありがとうございます。","pointDelta":4}');
+assert.equal(parsedReply.pointDelta, 4);
+assert.equal(parseOneOnOneReply("not json"), null);

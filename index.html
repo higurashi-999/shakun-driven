@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.19">
+<link rel="stylesheet" href="css/style.css?v=20261102.20">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M9：社長命令と副作用）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M10：社訓3枠と1on1）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -90,7 +90,7 @@
       <button id="btn-result" class="secondary hidden">結果を見る</button>
     </div>
     <div class="row">
-      <button id="btn-interview" class="secondary">面談する（退職相談）</button>
+      <button id="btn-interview" class="secondary">1 on 1をする</button>
       <button id="btn-loan" class="secondary hidden">融資審査を受ける</button>
     </div>
     <p id="office-note" class="note"></p>
@@ -119,6 +119,12 @@
     <span>社訓・ルール（自由文）</span>
     <textarea id="ed-text" rows="3" placeholder="例：お客様は神様である／会議は15分まで"></textarea>
   </label>
+  <div class="ed-examples">
+    <span class="note">書き方の例（タップで入力できます）：</span>
+    <button class="ex-chip" data-ex="顧客からの問い合わせには、当日中に必ず返信すること">顧客絶対の例</button>
+    <button class="ex-chip" data-ex="金曜日はノー残業デーとし、全員定時で退社すること">福利厚生の例</button>
+    <button class="ex-chip" data-ex="新しい挑戦は失敗しても咎めない。まず試すことを評価する">挑戦奨励の例</button>
+  </div>
   <div class="row">
     <button id="btn-extract" class="primary">構造化してプレビュー</button>
   </div>
@@ -129,6 +135,10 @@
     <h3>解釈プレビュー</h3>
     <pre id="ed-preview" class="preview"></pre>
     <div id="ed-conflicts"></div>
+    <div id="ed-swap-wrap" class="hidden">
+      <p class="note">有効な社訓は3つまでです。入れ替える場合は、廃止する社訓を選んでください（入れ替えは週1回まで、そのたび全員の信仰度が−3されます）。</p>
+      <label class="field"><span>入れ替えで廃止する社訓</span><select id="ed-swap-target"></select></label>
+    </div>
     <div class="row">
       <button id="btn-register" class="primary">この内容で台帳に登録</button>
     </div>
@@ -184,7 +194,7 @@
   <h3>造語辞典</h3>
   <p class="note">社内用語を定義すると結束が高まる一方、外部には通じなくなります。</p>
   <label class="field"><span>用語</span><input id="gl-term" type="text"></label>
-    <label class="field"><span>定義</span><input id="gl-def" type="text"></label>
+    <label class="field"><span>定義</span><input id="gl-def" type="text" placeholder="辞典のように堅く書くと味が出ます（例：〜をいう）"></label>
   <div class="row">
     <button id="btn-gl-add" class="secondary">辞典に登録</button>
   </div>
@@ -240,25 +250,32 @@
 
 <!-- 面談 -->
 <section id="screen-interview" class="screen">
-  <h2>面談</h2>
-  <p id="iv-who" class="note"></p>
-  <div class="card"><p id="iv-opening"></p></div>
-  <div id="iv-action-wrap">
-    <label class="field">
-      <span>社長の返答（自由文）</span>
-      <textarea id="iv-response" rows="3" placeholder="本人の訴えに、どう答えますか"></textarea>
-    </label>
-    <div class="row">
-      <button id="btn-iv-send" class="primary">返答する</button>
+  <h2>1 on 1</h2>
+  <p class="note">週に1回だけ、社員を1人選んでじっくり話せます（最大5往復）。言葉次第では、相手の心が限界を迎えて会話が打ち切られることもあります。</p>
+  <div id="iv-picker"></div>
+  <div id="iv-main" class="hidden">
+    <p id="iv-who" class="note"></p>
+    <p id="iv-turns" class="note"></p>
+    <div id="iv-log" class="chat-log"></div>
+    <div id="iv-action-wrap">
+      <label class="field">
+        <span>社長の発言（自由文）</span>
+        <textarea id="iv-response" rows="3" placeholder="相手にどう声をかけますか"></textarea>
+      </label>
+      <div class="row">
+        <button id="btn-iv-send" class="primary">話す</button>
+        <button id="btn-iv-end" class="secondary">ここで終了する</button>
+      </div>
     </div>
-    <p class="note">判定は「訴えに触れているか」「台帳に裏付けがあるか」「言行が一致しているか」で決まります。</p>
+    <div id="iv-result-wrap" class="hidden">
+      <pre id="iv-result" class="preview"></pre>
+      <div class="row">
+        <button id="btn-iv-done" class="primary">社長室へ</button>
+      </div>
+    </div>
   </div>
-  <div id="iv-result-wrap" class="hidden">
-    <div class="card"><p id="iv-reply"></p></div>
-    <pre id="iv-result" class="preview"></pre>
-    <div class="row">
-      <button id="btn-iv-done" class="primary">社長室へ</button>
-    </div>
+  <div class="row">
+    <button id="btn-iv-back" class="secondary">社長室へ戻る</button>
   </div>
 </section>
 
@@ -272,6 +289,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.19"></script>
+<script type="module" src="js/app.js?v=20261102.20"></script>
 </body>
 </html>

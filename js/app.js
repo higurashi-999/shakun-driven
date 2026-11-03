@@ -7,25 +7,27 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.19";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.19";
+} from "./store.js?v=20261102.20";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.20";
 import {
 validateRecord,
 registerRule,
 abolishRule,
 activeRules,
+activeCount,
+MAX_ACTIVE_RULES,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.19";
-import { extractRule} from "./extract.js?v=20261102.19";
-import { initialEmployees} from "./employees.js?v=20261102.19";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.19";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.19";
-import { narrateWeek } from "./report.js?v=20261102.19";
+} from "./ledger.js?v=20261102.20";
+import { extractRule} from "./extract.js?v=20261102.20";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.20";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.20";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.20";
+import { narrateWeek } from "./report.js?v=20261102.20";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.19";
-import { TITLE_ART } from "./assets.js?v=20261102.19";
+import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.20";
+import { TITLE_ART } from "./assets.js?v=20261102.20";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
@@ -68,6 +70,12 @@ if (state.reputation == null) { state.reputation = 50; changed = true;}
 if (!state.status) { state.status = "playing"; changed = true;}
 if (state.rngState == null) { state.rngState = state.seed; changed = true;}
 if (!Array.isArray(state.eventHistory)) { state.eventHistory = []; changed = true;}
+// M10：社訓3枠制への移行（有効が4件以上なら古い順に3件を残す）
+const actives = activeRules(state.ledger || []);
+if (actives.length > MAX_ACTIVE_RULES) {
+for (const r of actives.slice(MAX_ACTIVE_RULES)) abolishRule(state, r.id, "社訓3枠制への移行で自動廃止");
+changed = true;
+}
 if (changed) saveState(state);
 }
 
@@ -233,18 +241,14 @@ $("btn-advance").disabled = state.status!== "playing";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
 // 融資審査（第4週を過ぎても未実施なら社長室から受けられる）
 $("btn-loan").classList.toggle("hidden", !(state.status === "playing" && !state.loanDone && state.week >= 5));
-// 面談（退職相談）：対象がいて、今週まだ使っていなければ可
-const ivTarget = state.status === "playing" ? pickInterviewTarget(state) : null;
-const ivUsed = state.interviewUsedWeek === state.week;
-$("btn-interview").disabled = !ivTarget || ivUsed;
-$("btn-interview").textContent = ivTarget ? `面談する（${ivTarget.name}）` : "面談する（退職相談）";
+// 1on1：週1回まで
+const ivUsed = state.oneOnOneWeek === state.week;
+$("btn-interview").disabled = state.status !== "playing" || ivUsed || !state.employees.length;
+$("btn-interview").textContent = ivUsed ? "1 on 1（今週は実施済み）" : "1 on 1をする";
 $("office-note").textContent =
 state.status!== "playing" ? "" :
-ivUsed ? "今週の面談は済んでいます。" :
-!ivTarget ? "今は退職相談を持ちかける社員はいません。" :
-state.mode === "black"
-? `${ivTarget.name} の様子がおかしいようです。`
-: `${ivTarget.name} の様子がおかしいようです（疲労 ${ivTarget.fatigue}／不満 ${ivTarget.dissatisfaction}／信仰度 ${ivTarget.faith}）。`;
+ivUsed ? "今週の1on1は済んでいます。" :
+(() => { const d = orderedEmps.find((e) => dangerOf(e) >= 2); return d ? `${d.name} の様子がおかしいようです。1on1で声をかけてみてはどうでしょう。` : ""; })();
 }
 
 function onAdvance() {
@@ -400,42 +404,121 @@ setLoanStamp(state.loanResult ? state.loanResult.grade : null);
 }
 
 /* ---------- 面談 ---------- */
+/* ---------- 1 on 1 ---------- */
 function renderInterview() {
-if (!state || !state.interview) return;
-const emp = state.employees.find((e) => e.id === state.interview.empId);
-if (!emp) return;
-const concern = CONCERNS[state.interview.concernKey];
-$("iv-who").textContent = state.mode === "black"
-? `${emp.name} ― 状態の詳細は伏せられています（訴え：${concern.label}）`
-: `${emp.name} ― 疲労 ${emp.fatigue}／不満 ${emp.dissatisfaction}／信仰度 ${emp.faith}（訴え：${concern.label}）`;
-$("iv-opening").textContent = concern.opening;
-$("iv-response").value = "";
-$("iv-action-wrap").classList.remove("hidden");
-$("iv-result-wrap").classList.add("hidden");
+if (!state) return;
+const session = state.oneOnOne;
+const used = state.oneOnOneWeek === state.week;
+$("iv-picker").classList.toggle("hidden", !!session);
+$("iv-main").classList.toggle("hidden", !session);
+if (!session) {
+const picker = $("iv-picker");
+picker.innerHTML = "";
+if (used) { picker.innerHTML = '<p class="note">今週の1on1は実施済みです。</p>'; return; }
+for (const e of state.employees) {
+const ch = getCharacter(e.id);
+const btn = document.createElement("button");
+btn.className = "iv-emp-btn";
+const stateLine = state.mode === "black" ? "状態の詳細は伏せられています" : `疲労 ${Math.round(e.fatigue)}／不満 ${Math.round(e.dissatisfaction)}／信仰度 ${Math.round(e.faith)}`;
+const strong = document.createElement("strong");
+strong.textContent = e.name;
+btn.appendChild(strong);
+const small = document.createElement("small");
+small.textContent = `${ch.profile}（${stateLine}）`;
+btn.appendChild(small);
+btn.addEventListener("click", () => startOneOnOne(e.id));
+picker.appendChild(btn);
+}
+return;
+}
+const emp = state.employees.find((e) => e.id === session.empId);
+$("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
+$("iv-turns").textContent = session.done ? "" : `往復 ${session.turns}／${ONE_ON_ONE_MAX_TURNS}`;
+const log = $("iv-log");
+log.innerHTML = "";
+for (const h of session.log) {
+const row = document.createElement("div");
+row.className = `chat-row ${h.who}`;
+row.textContent = h.text;
+log.appendChild(row);
+}
+$("iv-action-wrap").classList.toggle("hidden", !!session.done);
+$("iv-result-wrap").classList.toggle("hidden", !session.done);
+if (session.done) $("iv-result").textContent = (session.resultLines || []).join("\n");
 }
 
-async function onInterviewSend() {
-if (!state || !state.interview) return;
-const empId = state.interview.empId;
-const concernKey = state.interview.concernKey;
-const empBefore = state.employees.find((e) => e.id === empId);
-const text = $("iv-response").value;
-const res = judgeInterview(state, empId, text, phaseTagsMap());
-if (!res) return;
-state = res.state;
-state.lastReport = [...(state.lastReport || []), ...res.lines];
+function startOneOnOne(empId) {
+if (!state || state.oneOnOneWeek === state.week) return;
+const emp = state.employees.find((e) => e.id === empId);
+if (!emp) return;
+const ch = getCharacter(empId);
+state.oneOnOne = {
+empId,
+turns: 0,
+points: oneOnOneInitialPoints(emp, ch),
+log: [{ who: "emp", text: ch.opening }],
+playerTexts: [],
+done: false,
+resultLines: [],
+};
+state.oneOnOneWeek = state.week;
 saveState(state);
-$("iv-result").textContent = res.lines.join("\n");
-$("iv-reply").textContent = INTERVIEW_FALLBACK_LINES[res.outcome];
-$("iv-action-wrap").classList.add("hidden");
-$("iv-result-wrap").classList.remove("hidden");
-// 社員の台詞はLLMが書く（判定はコードで確定済み）。不通なら定型文のまま
-try {
-const reply = await callLLM("main", buildInterviewPrompt(state, empBefore, concernKey, text, res.outcome), { temperature: 0.8, maxOutputTokens: 200 });
-if (reply && $("screen-interview").classList.contains("active")) {
-$("iv-reply").textContent = String(reply).trim();
+renderInterview();
 }
-} catch { /* 定型文のまま */ }
+
+async function onOneOnOneSend() {
+if (!state || !state.oneOnOne || state.oneOnOne.done) return;
+const session = state.oneOnOne;
+const emp = state.employees.find((e) => e.id === session.empId);
+if (!emp) return;
+const text = $("iv-response").value.trim();
+if (!text) return;
+$("iv-response").value = "";
+session.log.push({ who: "me", text });
+session.playerTexts.push(text);
+session.turns += 1;
+saveState(state);
+renderInterview();
+const ch = getCharacter(session.empId);
+let reply = null;
+let delta = 0;
+try {
+const raw = await callLLM("main", buildOneOnOnePrompt(state, emp, ch, session.log.slice(0, -1), text), { json: true, temperature: 0.7, maxOutputTokens: 300 });
+const parsed = parseOneOnOneReply(String(raw));
+if (parsed) { reply = parsed.reply; delta = clampPointDelta(parsed.pointDelta, ch); }
+} catch { /* 定型返答に落とす */ }
+if (!reply) reply = ONE_ON_ONE_FALLBACKS[session.turns % ONE_ON_ONE_FALLBACKS.length];
+session.points += delta;
+session.log.push({ who: "emp", text: reply });
+saveState(state);
+renderInterview();
+if (session.points <= 0) {
+session.log.push({ who: "emp", text: ch.cutoff });
+session.log.push({ who: "sys", text: "（相手の心が限界を迎え、会話は打ち切られました）" });
+saveState(state);
+finishOneOnOne();
+return;
+}
+if (session.turns >= ONE_ON_ONE_MAX_TURNS) {
+session.log.push({ who: "sys", text: "（社長は別件対応のため、ここで終了します）" });
+saveState(state);
+finishOneOnOne();
+}
+}
+
+function finishOneOnOne(reason) {
+if (!state || !state.oneOnOne || state.oneOnOne.done) return;
+const session = state.oneOnOne;
+if (reason) session.log.push({ who: "sys", text: `（${reason}）` });
+const res = judgeOneOnOne(state, session.empId, session);
+if (res) {
+state = res.state;
+state.oneOnOne.resultLines = res.lines;
+state.lastReport = [...(state.lastReport || []), ...res.lines];
+}
+state.oneOnOne.done = true;
+saveState(state);
+renderInterview();
 }
 
 const RANK_TITLES = { S: "伝説の社長", A: "敏腕社長", B: "堅実な社長", C: "発展途上の社長", D: "波乱の社長" };
@@ -450,10 +533,10 @@ s.status === "bankrupt"? "💸 倒産":
 s.status === "empty"? "💸 社員が全員退職": "結果";
 $("result-summary").textContent = [
 `経過：${s.weeks} 週`,
-`資金：${s.funds} 万円`,
+`資金：${Math.round(s.funds)} 万円`,
 `社員：${s.employees} 人`,
-`平均信仰度：${s.avgFaith}／平均疲労：${s.avgFatigue}`,
-`評判：${s.reputation}／告発リスク蓄積：${s.risk}`,
+`平均信仰度：${Math.round(s.avgFaith)}／平均疲労：${Math.round(s.avgFatigue)}`,
+`評判：${Math.round(s.reputation)}／告発リスク蓄積：${Math.round(s.risk)}`,
 `有効な社訓：${s.rules} 件`,
 "",
 ...(() => {
@@ -496,6 +579,12 @@ function showDraftPreview() {
 if (!draft ||!state) return;
 draftConflicts = detectContradictions(draft, state.ledger);
 $("ed-fields").textContent = recordSummary(draft);
+const swapWrap = $("ed-swap-wrap");
+const actives = activeRules(state.ledger);
+swapWrap.classList.toggle("hidden", actives.length < MAX_ACTIVE_RULES);
+if (actives.length >= MAX_ACTIVE_RULES) {
+$("ed-swap-target").innerHTML = actives.map((r) => `<option value="${r.id}">${r.text}</option>`).join("");
+}
 $("ed-preview").textContent = previewText(draft, state.ledger);
 const box = $("ed-conflicts");
 box.innerHTML = "";
@@ -579,13 +668,28 @@ showDraftPreview();
 
 function onRegister() {
 if (!requireState() ||!draft) return;
+let isSwap = false;
+if (activeCount(state) >= MAX_ACTIVE_RULES) {
+if (state.lastSwapWeek === state.week) { $("ed-status").textContent = "今週はすでに社訓を入れ替え済みです。登録は来週にどうぞ。"; return; }
+const targetId = $("ed-swap-target").value;
+if (!targetId) { $("ed-status").textContent = "入れ替えで廃止する社訓を選んでください。"; return; }
+abolishRule(state, targetId, "入れ替えで廃止");
+isSwap = true;
+} else if (state.abolishedWeek === state.week) {
+if (state.lastSwapWeek === state.week) { $("ed-status").textContent = "今週はすでに社訓を入れ替え済みです。空き枠への登録も来週にどうぞ。"; return; }
+isSwap = true;
+}
 const entry = registerRule(state, draft, draftConflicts.map((c) => c.withId));
+if (isSwap) {
+state.lastSwapWeek = state.week;
+for (const e of state.employees) e.faith = Math.max(0, e.faith - 3);
+}
 saveState(state);
 draft = null;
 draftConflicts = [];
 $("ed-text").value = "";
 $("ed-preview-wrap").classList.add("hidden");
-$("ed-status").textContent = `台帳に登録しました（${entry.id}）。`;
+$("ed-status").textContent = `台帳に登録しました（${entry.id}）。` + (isSwap ? " 入れ替えのため、全員の信仰度が−3されました。" : "");
 }
 
 /* ---------- 台帳ビューア ---------- */
@@ -595,7 +699,7 @@ const agg = aggregateTags(state.ledger);
 const tagLines = Object.entries(agg)
 .filter(([, v]) => v.count > 0)
 .map(([t, v]) => `${t}：実効 ${v.effective}（登録 ${v.count} 件・素の合計 ${v.raw}）`);
-$("lg-tags").textContent = tagLines.length? tagLines.join("\n"): "まだ社訓がありません。";
+$("lg-tags").textContent = `有効な社訓 ${activeCount(state)}／${MAX_ACTIVE_RULES}` + (tagLines.length? "\n" + tagLines.join("\n"): "");
 const list = $("lg-list");
 list.innerHTML = "";
 if (!state.ledger.length) {
@@ -629,6 +733,7 @@ btn.textContent = "廃止する（正式な改訂）";
 btn.addEventListener("click", () => {
 if (confirm(`「${r.text}」を廃止しますか？廃止は正式な改訂手続きとして扱われ、ペナルティはありません。`)) {
 abolishRule(state, r.id, "台帳ビューアから廃止");
+state.abolishedWeek = state.week;
 saveState(state);
 renderLedger();
 }
@@ -646,7 +751,7 @@ state.glossary.forEach((g, i) => {
 const row = document.createElement("div");
 row.className = "card";
 const p = document.createElement("p");
-p.textContent = `「${g.term}」― ${g.definition}`;
+p.textContent = `【${g.term}】${g.definition}`;
 row.appendChild(p);
 const btn = document.createElement("button");
 btn.className = "secondary";
@@ -760,13 +865,11 @@ else finishWeek();
 });
 $("btn-interview").addEventListener("click", () => {
 if (!requireState()) return;
-const target = pickInterviewTarget(state);
-if (!target) return;
-state.interview = { empId: target.id, concernKey: detectConcern(target) };
-saveState(state);
 show("interview");
 });
-$("btn-iv-send").addEventListener("click", onInterviewSend);
+$("btn-iv-send").addEventListener("click", onOneOnOneSend);
+$("btn-iv-end").addEventListener("click", () => finishOneOnOne("社長が切り上げました。"));
+$("btn-iv-back").addEventListener("click", () => show("office"));
 $("btn-iv-done").addEventListener("click", () => {
 if (state && state.status!== "playing") show("result");
 else show("office");
@@ -775,6 +878,9 @@ $("btn-result").addEventListener("click", () => show("result"));
 $("btn-result-to-title").addEventListener("click", () => show("title"));
 
 /* ---------- エディタ・台帳の操作 ---------- */
+document.querySelectorAll(".ex-chip").forEach((chip) => {
+chip.addEventListener("click", () => { $("ed-text").value = chip.dataset.ex || ""; });
+});
 $("btn-extract").addEventListener("click", onExtract);
 $("btn-manual-preview").addEventListener("click", onManualPreview);
 $("btn-register").addEventListener("click", onRegister);

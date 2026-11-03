@@ -127,3 +127,13 @@ assert.equal(validateRecord({ text: "", kind: "行動規範", direction: "必須
 }
 
 console.log("LEDGER TESTS OK");
+
+// --- M10：社訓3枠と寸劇 ---
+import { MAX_ACTIVE_RULES, activeCount } from "../js/ledger.js";
+assert.equal(MAX_ACTIVE_RULES, 3);
+{
+  const v = validateRecord({ text: "テスト社訓", kind: "理念", direction: "必須", tag: "理念浸透", strength: 2, skit: "ある社員「心得た！」と叫んで早速実践した。" });
+  assert.ok(v.ok);
+  assert.ok(v.record.skit.includes("心得た"), "寸劇がレコードに保持される");
+  assert.ok(previewText(v.record, []).includes("現場の寸劇"), "プレビューに寸劇が出る");
+}
