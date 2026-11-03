@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.21">
+<link rel="stylesheet" href="css/style.css?v=20261102.22">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M11：2軸モデルとダッシュボード）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M12：ダッシュボード統合と矛盾の廃止）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -57,25 +57,29 @@
 
 <!-- 社長室（メイン画面の骨格） -->
 <section id="screen-office" class="screen">
-  <header class="status-bar">
-    <div class="stat-tile"><span class="stat-label">モード</span><span class="stat-value" id="st-mode">-</span></div>
-    <div class="stat-tile"><span class="stat-label">週</span><span class="stat-value"><span id="st-week">1</span><small>／6週</small></span></div>
-    <div class="stat-tile"><span class="stat-label">資金</span><span class="stat-value"><span id="st-funds">-</span><small>万円</small></span></div>
-    <div class="stat-tile"><span class="stat-label">社員</span><span class="stat-value"><span id="st-employees">0</span><small>人</small></span></div>
-    <div class="stat-tile"><span class="stat-label">評判</span><span class="stat-value"><span id="st-rep">50</span><small id="st-rep-word"></small></span></div>
-    <div class="stat-tile" id="st-risk-wrap"><span class="stat-label">告発リスク</span><span class="stat-value"><span id="st-risk">-</span><small id="st-risk-word"></small></span></div>
+  <header class="status-bar dash-panel">
+    <div class="dash-row dash-row-top">
+      <span class="dash-mode" id="st-mode">-</span>
+      <span class="dash-phase"><span id="st-phase">創業期</span><span class="dash-week">第<span id="st-week">1</span>週／全6週</span></span>
+      <span class="dash-funds">資金 <strong id="st-funds">-</strong><small>万円</small></span>
+    </div>
+    <div class="dash-row dash-row-sub">
+      <span class="dash-stat">社員 <strong id="st-employees">0</strong>人</span>
+      <span class="dash-stat">評判 <strong id="st-rep">50</strong><small id="st-rep-word"></small></span>
+      <span class="dash-stat">平均信仰度 <strong id="st-faith">-</strong></span>
+      <span class="dash-stat" id="st-risk-wrap">告発リスク <strong id="st-risk">-</strong><small id="st-risk-word"></small></span>
+    </div>
   </header>
   <p id="funds-note" class="note funds-note"></p>
   <div class="office-body">
     <div id="goal-panel" class="goal-panel">
-      <div class="goal-head"><strong>創業期の目標：6週完走</strong><span id="goal-progress-label"></span></div>
+      <div class="goal-head"><strong>創業期の目標：6週を完走する</strong><span id="goal-progress-label"></span></div>
       <div class="progress"><div id="goal-progress-bar"></div></div>
-      <p id="goal-next" class="goal-next"></p>
-      <p class="goal-rules">クリア：6週を完走する／敗北：資金が尽きる・社員が全員辞める</p>
     </div>
     <div id="guide-panel" class="guide-panel hidden">
       <div class="goal-head"><strong>はじめの進め方</strong><button id="btn-guide-close" class="mini">閉じる</button></div>
       <ol id="guide-steps"></ol>
+      <p class="goal-rules">クリア：6週を完走する／敗北：資金が尽きる・社員が全員辞める</p>
     </div>
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
@@ -134,7 +138,6 @@
     <pre id="ed-fields" class="preview"></pre>
     <h3>解釈プレビュー</h3>
     <pre id="ed-preview" class="preview"></pre>
-    <div id="ed-conflicts"></div>
     <div id="ed-swap-wrap" class="hidden">
       <p class="note">有効な社訓は3つまでです。入れ替える場合は、廃止する社訓を選んでください（入れ替えは週1回まで、そのたび全員の信仰度が−3されます）。</p>
       <label class="field"><span>入れ替えで廃止する社訓</span><select id="ed-swap-target"></select></label>
@@ -203,7 +206,7 @@
 <!-- 融資審査 -->
 <section id="screen-loan" class="screen">
   <h2>融資審査（初回）</h2>
-  <p>銀行と公庫の担当者が、事業計画としての社訓台帳と、ここまでの実績を審査します。台帳の矛盾は、そのまま信用の傷になります。</p>
+  <p>銀行と公庫の担当者が、事業計画としての社訓台帳と、ここまでの実績を審査します。資金と社員の状態が、そのまま信用になります。</p>
   <div id="loan-intro">
     <div class="row">
       <button id="btn-loan-apply" class="primary">審査を受ける</button>
@@ -259,6 +262,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.21"></script>
+<script type="module" src="js/app.js?v=20261102.22"></script>
 </body>
 </html>

@@ -12,7 +12,6 @@ factors.push({ label, points});
 score += points;
 };
 const active = (state.ledger || []).filter((r) => r.status === "active");
-const contradictionPairs = active.reduce((s, r) => s + (r.contradictions || []).length, 0);
 const avgFaith = state.employees.length
 ? state.employees.reduce((s, e) => s + e.faith, 0) / state.employees.length
 : 0;
@@ -20,9 +19,6 @@ const avgFaith = state.employees.length
 if (active.length >= 3) add(`社訓が ${active.length} 件そろい、経営方針が形になっている`, 8);
 else if (active.length >= 1) add("社訓はあるが、まだ方針として薄い", 2);
 else add("社訓が1件もなく、経営方針が見えない", -12);
-const contraPenalty = state.mode === "black" ? 8 : 15; // ブラック：銀行は数字を見て目をつぶる
-if (contradictionPairs > 0) add(`台帳に矛盾の記録が ${contradictionPairs} 件ある`, -contraPenalty * contradictionPairs);
-else if (active.length >= 1) add("台帳に矛盾の記録がない", 6);
 const discipline = tags["規律統制"] || 0;
 if (discipline >= 1.5) add("規律・管理の社訓が効いており、数字の管理が期待できる", 8);
 const costCut = tags["コスト削減"] || 0;
@@ -48,13 +44,13 @@ else { grade = "不合格"; amount = 0; rate = null;}
 
 const next = structuredClone(state);
 const lines = [`スコア ${score} ― ${grade}`];
-lines.push(state.mode === "black" ? "※ ブラックモードの審査：数字重視（矛盾の減点は小さめ、社員の結束は見ない）" : "※ ホワイトモードの審査：数字と人の両方を見る");
+lines.push(state.mode === "black" ? "※ ブラックモードの審査：数字重視（社員の結束は見ない）" : "※ ホワイトモードの審査：数字と人の両方を見る");
 for (const f of factors) lines.push(`${f.points >= 0? "＋": "－"} ${f.label}（${f.points >= 0? "+": ""}${f.points}）`);
 if (amount > 0) {
 next.funds = Math.round((next.funds + amount) * 10) / 10;
 lines.push(`融資 ${amount} 万円（金利 ${rate}%）が実行され、資金は ${next.funds} 万円になりました。`);
 } else {
-lines.push("今回は融資が通りませんでした。台帳の矛盾を正し、実績を作ってから再挑戦です（本編では再審査あり）。");
+lines.push("今回は融資が通りませんでした。資金と社員の状態を立て直し、実績を作ってから再挑戦です（本編では再審査あり）。");
 }
 next.loanDone = true;
 next.loanResult = { score, grade, amount, rate, week: state.week};

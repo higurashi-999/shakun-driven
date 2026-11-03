@@ -31,7 +31,7 @@ function phaseTags(state) {
   return out;
 }
 
-// 融資審査：台帳が整っている会社は合格し、矛盾だらけの会社は落ちる（台帳依存）
+// 融資審査：台帳が整っている会社は合格し、資金・評判・リスクの悪い会社は落ちる（台帳・状態依存）
 {
   const good = makeState();
   addRule(good, { text: "経費は1円まで報告", tag: "コスト削減", strength: 3 });
@@ -42,8 +42,8 @@ function phaseTags(state) {
   assert.ok(g.state.funds > 1000);
 
   const bad = makeState({ funds: 200, risk: 40, reputation: 35 });
-  const r1 = addRule(bad, { text: "残業は必須", tag: "労働強化", strength: 3 });
-  addRule(bad, { text: "残業は禁止", tag: "福利厚生", strength: 3 }, [r1.id]);
+  addRule(bad, { text: "残業は必須", tag: "労働強化", strength: 3 });
+  addRule(bad, { text: "残業は禁止", tag: "福利厚生", strength: 3 });
   const b = judgeLoan(bad, phaseTags(bad));
   assert.equal(b.result.amount, 0, JSON.stringify(b.result));
   assert.equal(b.result.grade, "不合格");
@@ -92,12 +92,12 @@ function phaseTags(state) {
 
 console.log("SCENES TESTS OK");
 
-// --- M5: 融資審査のモード差（同じ矛盾でもブラックは数字で通る） ---
+// --- M5: 融資審査のモード差（ブラックは資金評価の比重が大きく、数字で通りやすい） ---
 {
   const build = (mode) => {
     const s = makeState({ mode, funds: 900, risk: 0, reputation: 50 });
-    const r1 = addRule(s, { text: "残業は必須", tag: "労働強化", strength: 3 });
-    addRule(s, { text: "残業は禁止", tag: "福利厚生", strength: 3 }, [r1.id]);
+    addRule(s, { text: "残業は必須", tag: "労働強化", strength: 3 });
+    addRule(s, { text: "定時退社を徹底", tag: "福利厚生", strength: 3 });
     return s;
   };
   const w = judgeLoan(build("white"), {});

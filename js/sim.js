@@ -48,7 +48,7 @@ function avg(list, key) {
   return list.reduce((s, e) => s + e[key], 0) / list.length;
 }
 
-// ctx: { tags: aggregateTagsの結果, contradictions: 矛盾ペア数, glossary: 造語数 }
+// ctx: { tags: aggregateTagsの結果, glossary: 造語数 }（M12：社訓同士の矛盾の仕組みは廃止）
 export function simulateWeek(state, ctx) {
   if (state.status !== "playing") {
     return { state, log: ["すでに終了しています。"] };
@@ -97,6 +97,8 @@ export function simulateWeek(state, ctx) {
     e.lastSales = round1(salesI);
     e.lastSaving = round1(savingI);
     e.lastCost = round1(costI);
+    e.lastSalary = PARAMS.salaryPerWeek; // M12：人件費の内訳表示用
+    e.lastOtherCost = round1(costI - PARAMS.salaryPerWeek);
     e.lastProfit = round1(salesI + savingI - costI);
     sales += salesI;
     cost += costI - savingI;
@@ -114,7 +116,6 @@ export function simulateWeek(state, ctx) {
   }
 
   /* 社員の状態変化（体力ゲージと信仰度の2軸。不満は信仰度へ吸収、疲労は体力ゲージ化） */
-  const contradictionPenalty = (ctx.contradictions || 0) * 6;
   for (const e of emps) {
     const staminaFactor = 1.25 - e.stamina * 0.05;
     // 体力：仕事で減り、福利厚生と休息で回復する
@@ -131,13 +132,12 @@ export function simulateWeek(state, ctx) {
       e.hp = clamp(round1(e.hp + gain), 0, 100);
       if (gain >= 14) log.push(`🌿 ${e.name} は休養が効いて、体力が回復しました。`);
     }
-    // 信仰度：理念と厚生で育ち、無理な働かせ方・コスト削減・矛盾で蝕まれる
+    // 信仰度：理念と厚生で育ち、無理な働かせ方・コスト削減で蝕まれる
     let faithTarget =
       50 +
       6 * eff("理念浸透") +
       Math.min(5, (ctx.glossary || 0) * 1) +
       2 * eff("福利厚生") -
-      contradictionPenalty -
       1.5 * eff("コスト削減") -
       2 * eff("労働強化") +
       (e.ambition >= 7 ? 3 : 1) * eff("挑戦奨励");
@@ -165,7 +165,7 @@ export function simulateWeek(state, ctx) {
   next.reputation = clamp(round1(next.reputation + repDelta), 0, 100);
 
   /* 告発リスク（蓄積型：違反の強度×週で増え、是正・時間で減衰） */
-  let riskDelta = 1.2 * eff("労働強化") + 1.5 * (ctx.contradictions || 0) - 0.6 * eff("規律統制");
+  let riskDelta = 1.2 * eff("労働強化") - 0.6 * eff("規律統制");
   next.risk = clamp(round1((next.risk + riskDelta) * 0.95), 0, 100);
   if (next.risk >= 20) {
     const p = Math.min(0.3, next.risk * 0.004);
@@ -217,7 +217,7 @@ export function simulateWeek(state, ctx) {
         mental: 4 + Math.floor(rng.next() * 6),
         hp: 95,
         faith: 55,
-        lastSales: null, lastSaving: null, lastCost: null, lastProfit: null,
+        lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null,
       };
       next.employees.push(hire);
       log.push(`🤝 ${name} が入社しました（紹介採用）。`);

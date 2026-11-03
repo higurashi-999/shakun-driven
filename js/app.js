@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.21";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.21";
+} from "./store.js?v=20261102.22";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.22";
 import {
 registerRule,
 abolishRule,
@@ -16,22 +16,20 @@ activeRules,
 activeCount,
 MAX_ACTIVE_RULES,
 aggregateTags,
-detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.21";
-import { extractRule} from "./extract.js?v=20261102.21";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.21";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.21";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.21";
-import { narrateWeek } from "./report.js?v=20261102.21";
+} from "./ledger.js?v=20261102.22";
+import { extractRule} from "./extract.js?v=20261102.22";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.22";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.22";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.22";
+import { narrateWeek } from "./report.js?v=20261102.22";
 
-import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.21";
-import { TITLE_ART } from "./assets.js?v=20261102.21";
+import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.22";
+import { TITLE_ART } from "./assets.js?v=20261102.22";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
-let draftConflicts = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -89,6 +87,8 @@ changed = true;
 if (changed) saveState(state);
 }
 
+const PHASE_NAMES = { 1: "創業期", 2: "組織化期", 3: "拡大期", 4: "成熟期" };
+
 /* ---------- 社長室 ---------- */
 function moodOf(e) {
 if (e.hp <= 15 || e.faith <= 25) return "😵";
@@ -110,9 +110,11 @@ if (!state) return;
 migrateState();
 $("st-mode").textContent =
 state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": "-";
+$("st-phase").textContent = PHASE_NAMES[state.phase] || "創業期";
 $("st-week").textContent = String(Math.min(state.week, 6));
 $("st-funds").textContent = Math.round(state.funds).toLocaleString("ja-JP");
 $("st-employees").textContent = String(state.employees.length);
+$("st-faith").textContent = state.employees.length ? String(Math.round(state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length)) : "-";
 $("st-rep").textContent = String(Math.round(state.reputation));
 $("st-rep-word").textContent = state.reputation >= 60 ? "良好" : state.reputation >= 40 ? "普通" : "低迷";
 if (state.mode === "black") $("st-risk-wrap").classList.add("hidden");
@@ -126,7 +128,6 @@ state.lastProfit > 0 ? `直近週の収支：+${Math.round(state.lastProfit)}万
 state.lastProfit < 0 ? (Math.floor(state.funds / -state.lastProfit) > 12 ? `直近週の収支：${Math.round(state.lastProfit)}万円（資金にはまだ余裕があります）` : `直近週の収支：${Math.round(state.lastProfit)}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}週もちます`) :
 "直近週の収支：±0万円";
 const active = activeRules(state.ledger);
-const conflicts = active.filter((r) => (r.contradictions || []).length > 0).length;
 const agg = aggregateTags(state.ledger);
 const topTags = Object.entries(agg)
 .filter(([, v]) => v.effective > 0)
@@ -134,22 +135,17 @@ const topTags = Object.entries(agg)
 .slice(0, 3)
 .map(([t, v]) => `${t} ${v.effective}`);
 $("ledger-summary").textContent =
-`有効な社訓 ${active.length} 件／矛盾の記録 ${conflicts} 件／造語 ${state.glossary.length} 件` +
+`有効な社訓 ${active.length} 件／造語 ${state.glossary.length} 件` +
 (topTags.length? `／主な効果：${topTags.join("、")}`: "");
 // 目標パネル（M6）
 $("goal-progress-label").textContent = `第${Math.min(state.week, 6)}週／全6週`;
 $("goal-progress-bar").style.width = `${Math.round((Math.min(Math.max(state.week - 1, 0), 6) / 6) * 100)}%`;
-$("goal-next").textContent =
-state.status!== "playing" ? "創業期は終了しました。結果画面で最終評価を確認できます。" :
-!state.loanDone && state.week <= 4 ? "次の山場：第4週の融資審査 ― 優遇の目安は「矛盾なし・資金800万円以上・平均信仰度55以上」です。" :
-!state.loanDone ? "融資審査がまだ終わっていません。「融資審査を受ける」から審査へ進めます。" :
-"次の山場：あとは6週完走が目標です。退職者を出さず、資金を守り切りましょう。";
 // 初回ガイド（M6）
 const guideSteps = [
 { label: "社訓を1件、台帳に登録してみる", done: active.length >= 1 },
 { label: "「週を進める」で1週間を回してみる", done: state.week >= 2 },
 { label: "イベントが起きたら社長命令で対応する（静観も立派な選択肢）", done: (state.eventHistory || []).length >= 1 || state.week >= 3 },
-{ label: "第4週の融資審査に備える（矛盾ゼロ・資金と信仰度を保つ）", done: !!state.loanDone },
+{ label: "第4週の融資審査に備える（資金800万円・平均信仰度55が目安）", done: !!state.loanDone },
 ];
 $("guide-panel").classList.toggle("hidden", !!state.guideClosed || guideSteps.every((g) => g.done));
 $("guide-steps").innerHTML = guideSteps.map((g) => `<li class="${g.done ? "done" : ""}">${g.done ? "✓ " : ""}${g.label}</li>`).join("");
@@ -163,13 +159,15 @@ card.className = "card";
 const name = document.createElement("strong");
 name.textContent = e.name;
 card.appendChild(name);
-const meta = document.createElement("p");
-meta.className = "note";
+const meta = document.createElement("div");
+meta.className = "note trait-line";
 const dots = (v) => "●".repeat(v) + "○".repeat(10 - v);
-meta.innerHTML = "";
-const dotsLine = document.createElement("span");
-dotsLine.innerHTML = `能力 <span class="dots">${dots(e.ability)}</span> 野心 <span class="dots">${dots(e.ambition)}</span> メンタル <span class="dots">${dots(e.mental)}</span>`;
-meta.appendChild(dotsLine);
+for (const [label, v] of [["能力", e.ability], ["野心", e.ambition], ["メンタル", e.mental]]) {
+const g = document.createElement("span");
+g.className = "trait";
+g.innerHTML = `${label} <span class="dots">${dots(v)}</span>`;
+meta.appendChild(g);
+}
 card.appendChild(meta);
 if (state.mode!== "black") name.textContent = `${moodOf(e)} ${e.name}`;
 const meters = document.createElement("div");
@@ -185,18 +183,20 @@ if (state.mode!== "black") meters.appendChild(meter("体力", e.hp, "hp"));
 else {
 const row = document.createElement("div");
 row.className = "meter-row";
-row.innerHTML = `<span class="meter-label">体力</span><span class="note">？？（ブラックでは非表示）</span>`;
+row.innerHTML = `<span class="meter-label">体力</span><span class="note">？？</span>`;
 meters.appendChild(row);
 }
 meters.appendChild(meter("信仰", e.faith, "faith"));
 card.appendChild(meters);
-if (e.lastProfit != null) {
 const prof = document.createElement("p");
 prof.className = "emp-profit";
+if (e.lastProfit != null) {
 const sign = e.lastProfit >= 0 ? "+" : "";
-prof.innerHTML = `先週の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>（売上 ${Math.round(e.lastSales)}＋コストダウン ${Math.round(e.lastSaving)}−コスト ${Math.round(e.lastCost)}）`;
-card.appendChild(prof);
+prof.innerHTML = `先週の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>（売上 ${Math.round(e.lastSales)}＋コストダウン ${Math.round(e.lastSaving)}−人件費 ${Math.round(e.lastSalary ?? 9)}−その他 ${Math.round(e.lastOtherCost ?? Math.max(0, e.lastCost - 9))}）`;
+} else {
+prof.textContent = "先週の収支貢献：―（週を進めると実績が出ます）";
 }
+card.appendChild(prof);
 if (state.mode!== "black" && dangerOf(e) === 2) {
 const b = document.createElement("span");
 b.className = "badge danger";
@@ -271,8 +271,14 @@ $("btn-interview").disabled = state.status !== "playing" || ivUsed || !state.emp
 $("btn-interview").textContent = ivUsed ? "1 on 1（今週は実施済み）" : "1 on 1をする";
 $("office-note").textContent =
 state.status!== "playing" ? "" :
-ivUsed ? "今週の1on1は済んでいます。" :
-(() => { const d = orderedEmps.find((e) => dangerOf(e) >= 2); return d ? `${d.name} の様子がおかしいようです。1on1で声をかけてみてはどうでしょう。` : ""; })();
+(() => {
+const d = orderedEmps.find((e) => dangerOf(e) >= 2);
+if (d) return `${d.name} の様子がおかしいようです。1on1で声をかけてみてはどうでしょう。`;
+if (!state.loanDone && state.week <= 4) return "次の山場は第4週の融資審査です。優遇の目安は資金800万円以上・平均信仰度55以上（平均信仰度は上のダッシュボードで確認できます）。";
+if (!state.loanDone) return "融資審査がまだ終わっていません。「融資審査を受ける」から審査へ進めます。";
+if (ivUsed) return "今週の1on1は済んでいます。";
+return "";
+})();
 }
 
 function onAdvance() {
@@ -281,7 +287,6 @@ migrateState();
 const processedWeek = state.week;
 const ctx = {
 tags: aggregateTags(state.ledger),
-contradictions: activeRules(state.ledger).reduce((s, r) => s + (r.contradictions || []).length, 0),
 glossary: state.glossary.length,
 };
 state.prevSnapshot = snapshotOf(state);
@@ -318,7 +323,7 @@ finishWeek();
 function finishWeek() {
 if (state.status === "playing" && state.week === 4 && !state.loanDone) {
 // 来週（第4週）は融資審査。ランダムイベントは引かず、兆しだけ出す
-state.lastReport = [...(state.lastReport || []), "🔮 来週は初回融資審査があります。台帳の整合性と実績が問われます。"];
+state.lastReport = [...(state.lastReport || []), "🔮 来週は初回融資審査があります。資金と社員の状態が問われます。"];
 } else if (state.status === "playing" && state.week <= 5) {
 const nextId = drawEventId(state, state.week);
 state.pendingEventId = nextId;
@@ -436,6 +441,7 @@ const session = state.oneOnOne;
 const used = state.oneOnOneWeek === state.week;
 $("iv-picker").classList.toggle("hidden", !!session);
 $("iv-main").classList.toggle("hidden", !session);
+$("btn-iv-back").classList.toggle("hidden", !!session); // M12：戻るボタンは相手選びのときだけ（結果側の「社長室へ」と重複させない）
 if (!session) {
 const picker = $("iv-picker");
 picker.innerHTML = "";
@@ -598,7 +604,6 @@ $("test-result").textContent = "";
 /* ---------- 社長命令エディタ ---------- */
 function renderEditor() {
 draft = null;
-draftConflicts = [];
 $("ed-status").textContent = "";
 $("ed-preview-wrap").classList.add("hidden");
 }
@@ -617,7 +622,6 @@ return lines.join("\n");
 
 function showDraftPreview() {
 if (!draft ||!state) return;
-draftConflicts = detectContradictions(draft, state.ledger);
 $("ed-fields").textContent = recordSummary(draft);
 const swapWrap = $("ed-swap-wrap");
 const actives = activeRules(state.ledger);
@@ -626,20 +630,7 @@ if (actives.length >= MAX_ACTIVE_RULES) {
 $("ed-swap-target").innerHTML = actives.map((r) => `<option value="${r.id}">${r.text}</option>`).join("");
 }
 $("ed-preview").textContent = previewText(draft, state.ledger);
-const box = $("ed-conflicts");
-box.innerHTML = "";
-if (draftConflicts.length) {
-const p = document.createElement("p");
-p.className = "warn";
-p.textContent =
-"⚠ 矛盾の警告：" +
-draftConflicts.map((c) => `${c.message}`).join("／") +
-"。登録すると矛盾として記録され、信仰度や告発リスクに影響します。避けるには、台帳側の古いルールを先に廃止してください（正式な改訂）。";
-box.appendChild(p);
-$("btn-register").textContent = "矛盾を承知で登録する";
-} else {
 $("btn-register").textContent = "この内容で台帳に登録";
-}
 $("ed-preview-wrap").classList.remove("hidden");
 }
 
@@ -686,14 +677,13 @@ isSwap = true;
 if (state.lastSwapWeek === state.week) { $("ed-status").textContent = "今週はすでに社訓を入れ替え済みです。空き枠への登録も来週にどうぞ。"; return; }
 isSwap = true;
 }
-const entry = registerRule(state, draft, draftConflicts.map((c) => c.withId));
+const entry = registerRule(state, draft);
 if (isSwap) {
 state.lastSwapWeek = state.week;
 for (const e of state.employees) e.faith = Math.max(0, e.faith - 3);
 }
 saveState(state);
 draft = null;
-draftConflicts = [];
 $("ed-text").value = "";
 $("ed-preview-wrap").classList.add("hidden");
 $("ed-status").textContent = `台帳に登録しました（${entry.id}）。` + (isSwap ? " 入れ替えのため、全員の信仰度が−3されました。" : "");
@@ -738,8 +728,7 @@ const meta = document.createElement("p");
 meta.className = "note";
 meta.textContent =
 `${r.kind}／${r.direction}／対象：${r.target}／効き方：${r.tag}（強さ ${"●".repeat(r.strength)}${"○".repeat(3 - r.strength)}）／第${r.createdWeek}週に登録` +
-(r.metric? `／${r.metric.label} ${r.metric.value}${r.metric.unit}`: "") +
-((r.contradictions || []).length? `／⚠ 矛盾の記録あり（${r.contradictions.length}件）`: "");
+(r.metric? `／${r.metric.label} ${r.metric.value}${r.metric.unit}`: "");
 card.appendChild(meta);
 if (r.status === "active") {
 const btn = document.createElement("button");
