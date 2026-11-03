@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.15";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.15";
+} from "./store.js?v=20261102.16";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.16";
 import {
 validateRecord,
 registerRule,
@@ -17,15 +17,15 @@ activeRules,
 aggregateTags,
 detectContradictions,
 previewText,
-} from "./ledger.js?v=20261102.15";
-import { extractRule} from "./extract.js?v=20261102.15";
-import { initialEmployees} from "./employees.js?v=20261102.15";
-import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.15";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.15";
-import { narrateWeek } from "./report.js?v=20261102.15";
+} from "./ledger.js?v=20261102.16";
+import { extractRule} from "./extract.js?v=20261102.16";
+import { initialEmployees} from "./employees.js?v=20261102.16";
+import { simulateWeek, summarize, PHASE_TAG_MODIFIERS } from "./sim.js?v=20261102.16";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.16";
+import { narrateWeek } from "./report.js?v=20261102.16";
 
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.15";
-import { TITLE_ART } from "./assets.js?v=20261102.15";
+import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, buildInterviewPrompt, INTERVIEW_FALLBACK_LINES, CONCERNS, evaluateRun, rankOf } from "./scenes.js?v=20261102.16";
+import { TITLE_ART } from "./assets.js?v=20261102.16";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
 let state = loadState();

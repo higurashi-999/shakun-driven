@@ -1,6 +1,6 @@
 // 週報ナレーション：シムの素材ログを文章化する（LLM）。不通・失敗時は呼び出し側が素材ログ表示に落とす。
 // 数値判定には関与しない。素材に無い出来事を作らないよう強く制約する。
-import { callLLM } from "./llm.js?v=20261102.15";
+import { callLLM } from "./llm.js?v=20261102.16";
 
 export function buildNarrationPrompt(state, logLines, weekNo) {
   const glossary = (state.glossary || []).map((g) => `「${g.term}」（${g.definition}）`).join("、");
@@ -22,8 +22,19 @@ export function buildNarrationPrompt(state, logLines, weekNo) {
     .join("\n");
 }
 
+// 文が完結しているか（途中で切れた生成を弾く）
+export function looksComplete(text) {
+  return /[。！？」）]$/.test(String(text).trim());
+}
+
 export async function narrateWeek(state, logLines, weekNo) {
   const prompt = buildNarrationPrompt(state, logLines, weekNo);
-  const text = await callLLM("main", prompt, { temperature: 0.7, maxOutputTokens: 700 });
-  return String(text).trim();
+  let text = String(await callLLM("main", prompt, { temperature: 0.7, maxOutputTokens: 1600 })).trim();
+  if (!looksComplete(text)) {
+    // 切断時は短く完結させる指示でもう一度だけ試す
+    const retryPrompt = prompt + "\n（注意：350字以内で、文の途中で切れないよう最後まで完結させてください）";
+    text = String(await callLLM("main", retryPrompt, { temperature: 0.7, maxOutputTokens: 1600 })).trim();
+  }
+  if (!looksComplete(text)) throw new Error("narration truncated");
+  return text;
 }
