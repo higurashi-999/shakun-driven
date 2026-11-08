@@ -1,9 +1,10 @@
 // 社訓の構造化：自由文→台帳レコード（JSON）。プロンプト生成・応答パース・スキーマ検証・1回再試行。
 // 検証は ledger.js の validateRecord に委ね、崩れた応答はエラー内容を添えて再試行する。
-import { callLLM } from "./llm.js?v=20261102.22";
-import { validateRecord, TAGS, KINDS, DIRECTIONS } from "./ledger.js?v=20261102.22";
+import { callLLM } from "./llm.js?v=20261102.23";
+import { validateRecord, EFFECT_AXES, KINDS, DIRECTIONS, budgetForLength } from "./ledger.js?v=20261102.23";
 
 export function buildExtractionPrompt(text) {
+  const budget = budgetForLength(text.length);
   return [
     "あなたは会社経営ゲームの「社訓台帳エンジン」です。社長が書いた社訓・就業規則の文章を、機械可読なJSONへ構造化してください。",
     "出力はJSONオブジェクトのみ。前置き・説明・コードフェンスは禁止です。",
@@ -15,19 +16,18 @@ export function buildExtractionPrompt(text) {
     "- condition: 適用条件（無ければ空文字）",
     "- exception: 例外（無ければ空文字）",
     '- metric: 数値ルールが含まれる場合のみ {"label":"指標名","value":数値,"unit":"単位"}、無ければ null',
-    `- tag: 効き方8種のうち最も近い1つ：${TAGS.join("／")}`,
-    "- strength: 効力の強さ 1（弱い）〜3（絶対）",
-    "- priority: 優先度 1〜9（通常は1、絶対・最優先と読み取れる場合のみ上げる）",
+    `- effects: 効果を5項目で表すJSON。各キーは ${EFFECT_AXES.map((a) => `${a.key}＝${a.label}`).join("、")}。各 −3〜+3 の整数で、プラスはその性質が強まる方向（例：残業を強いる社訓なら sales はプラス、stamina はマイナス）。関係ない項目は 0`,
+    `- effects の絶対値の合計は ${budget} 以下にすること（社訓の文字数 ${text.length} 字から決まる上限）。合計が上限を超える出力は自動で弱められます`,
     "- behavior: 社員がこの社訓を文字どおり（リテラルに）実行したときの具体的な動きを1文で。極端な文字どおり解釈がこのゲームの肝なので、遠慮なく書き切る",
     "- sideEffect: その注意点（裏で起きる困りごと）を1文で",
     "- skit: この社訓が現場で実行される様子を、実在の社員の名前を使わず「ある社員」の形で、セリフ入りの短い寸劇にして2文以内。「文字どおり解釈のズレ」が伝わる書き方で",
     "",
     "例1：",
-    "入力：「お客様は神様である」",
-    '出力：{"target":"全員","kind":"理念","direction":"必須","condition":"","exception":"","metric":null,"tag":"顧客絶対","strength":3,"priority":1,"behavior":"返品・返金要求を原則すべて受け入れます","sideEffect":"クレームは減りますが利益率が下がります"}',
+    "入力：「お客様は神様である。何があっても笑顔で対応し、クレームには即座に謝罪すること」（37字、上限4）",
+    '出力：{"target":"全員","kind":"理念","direction":"必須","condition":"","exception":"","metric":null,"effects":{"sales":2,"stamina":-1,"faith":0,"rep":1,"discipline":0},"behavior":"返品・返金要求を原則すべて受け入れます","sideEffect":"クレームは減りますが利益率が下がります"}',
     "例2：",
-    "入力：「会議は15分まで」",
-    '出力：{"target":"全員","kind":"数値ルール","direction":"必須","condition":"","exception":"","metric":{"label":"会議時間","value":15,"unit":"分"},"tag":"規律統制","strength":2,"priority":1,"behavior":"会議を15分で打ち切ります","sideEffect":"商談も15分で切るため、大口の交渉では不利になります"}',
+    "入力：「会議は15分まで」（8字、上限1）",
+    '出力：{"target":"全員","kind":"数値ルール","direction":"必須","condition":"","exception":"","metric":{"label":"会議時間","value":15,"unit":"分"},"effects":{"sales":0,"stamina":0,"faith":0,"rep":0,"discipline":1},"behavior":"会議を15分で打ち切ります","sideEffect":"商談も15分で切るため、大口の交渉では不利になります"}',
     "",
     `入力：「${text}」`,
     "出力：",

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun, rankOf } from "../js/scenes.js";
 import { initialEmployees } from "../js/employees.js";
-import { validateRecord, registerRule, aggregateTags } from "../js/ledger.js";
+import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js";
 
 function makeState(overrides = {}) {
   return {
@@ -14,37 +14,34 @@ function makeState(overrides = {}) {
     ...overrides,
   };
 }
+const LONG = "あ".repeat(55);
 function addRule(state, overrides, contradictions = []) {
   const v = validateRecord({
-    text: "テスト社訓", target: "全員", kind: "行動規範", direction: "必須",
-    condition: "", exception: "", metric: null, tag: "規律統制",
-    strength: 2, priority: 1, behavior: "", sideEffect: "", ...overrides,
+    text: LONG, target: "全員", kind: "行動規範", direction: "必須",
+    condition: "", exception: "", metric: null, effects: { discipline: 2 },
+    behavior: "", sideEffect: "", ...overrides,
   });
   assert.equal(v.ok, true, JSON.stringify(v.errors));
   return registerRule(state, v.record, contradictions);
 }
-function phaseTags(state) {
-  const agg = aggregateTags(state.ledger);
-  const mods = { "自由裁量": 1.0, "規律統制": 0.4 };
-  const out = {};
-  for (const [t, v] of Object.entries(agg)) out[t] = v.effective * (mods[t] ?? 1);
-  return out;
+function effectsOf(state) {
+  return aggregateEffects(state.ledger);
 }
 
 // 融資審査：台帳が整っている会社は合格し、資金・評判・リスクの悪い会社は落ちる（台帳・状態依存）
 {
   const good = makeState();
-  addRule(good, { text: "経費は1円まで報告", tag: "コスト削減", strength: 3 });
-  addRule(good, { text: "報連相は当日中", tag: "規律統制", strength: 3 });
-  addRule(good, { text: "会議は15分まで", tag: "規律統制", strength: 2 });
-  const g = judgeLoan(good, phaseTags(good));
+  addRule(good, { effects: { discipline: 3 } });
+  addRule(good, { effects: { discipline: 2 } });
+  addRule(good, { effects: { sales: 2 } });
+  const g = judgeLoan(good, effectsOf(good));
   assert.equal(g.result.amount > 0, true, JSON.stringify(g.result));
   assert.ok(g.state.funds > 1000);
 
   const bad = makeState({ funds: 200, risk: 40, reputation: 35 });
-  addRule(bad, { text: "残業は必須", tag: "労働強化", strength: 3 });
-  addRule(bad, { text: "残業は禁止", tag: "福利厚生", strength: 3 });
-  const b = judgeLoan(bad, phaseTags(bad));
+  addRule(bad, { effects: { sales: 3 } });
+  addRule(bad, { effects: { stamina: -2 } });
+  const b = judgeLoan(bad, effectsOf(bad));
   assert.equal(b.result.amount, 0, JSON.stringify(b.result));
   assert.equal(b.result.grade, "不合格");
 }
@@ -68,8 +65,8 @@ function phaseTags(state) {
     return s;
   };
   const withLedger = build();
-  addRule(withLedger, { text: "有給は全員消化", tag: "福利厚生", strength: 3 });
-  const stay = judgeInterview(withLedger, "emp-1", "来週から休みを増やして、残業も減らします", phaseTags(withLedger));
+  addRule(withLedger, { effects: { stamina: 3 } });
+  const stay = judgeInterview(withLedger, "emp-1", "来週から休みを増やして、残業も減らします", effectsOf(withLedger));
   assert.equal(stay.outcome, "stay", JSON.stringify(stay.lines));
   assert.equal(stay.state.employees.length, 5);
 
@@ -84,9 +81,9 @@ function phaseTags(state) {
 {
   const s = makeState();
   s.employees[0].hp = 10;
-  addRule(s, { text: "残業は美徳", tag: "労働強化", strength: 3 });
-  addRule(s, { text: "残業こそ成長", tag: "労働強化", strength: 3 });
-  const res = judgeInterview(s, "emp-1", "残業を減らして休ませます", phaseTags(s));
+  addRule(s, { effects: { sales: 3 } });
+  addRule(s, { effects: { sales: 3 } });
+  const res = judgeInterview(s, "emp-1", "残業を減らして休ませます", effectsOf(s));
   assert.ok(res.lines.some((l) => l.includes("言行不一致")), JSON.stringify(res.lines));
 }
 
@@ -96,8 +93,8 @@ console.log("SCENES TESTS OK");
 {
   const build = (mode) => {
     const s = makeState({ mode, funds: 900, risk: 0, reputation: 50 });
-    addRule(s, { text: "残業は必須", tag: "労働強化", strength: 3 });
-    addRule(s, { text: "定時退社を徹底", tag: "福利厚生", strength: 3 });
+    addRule(s, { effects: { sales: 3 } });
+    addRule(s, { effects: { stamina: 3 } });
     return s;
   };
   const w = judgeLoan(build("white"), {});

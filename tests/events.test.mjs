@@ -21,12 +21,12 @@ function makeState(overrides = {}) {
   assert.equal(EVENTS.length, 12);
 }
 
-// 社訓（タグ）の有無で結果が変わる：労基イベント
+// 社訓の効果の有無で結果が変わる：労基イベント
 {
   const ev = getEvent("ev-labor-inspection");
-  const withTags = resolveEvent(makeState(), ev, { type: "respond", text: "" }, { "規律統制": 3, "福利厚生": 2 });
-  assert.equal(withTags.grade, "成功");
-  assert.ok(withTags.state.risk < 0 + 0 || withTags.effects.risk < 0);
+  const withFx = resolveEvent(makeState(), ev, { type: "respond", text: "" }, { discipline: 3, stamina: 2 });
+  assert.equal(withFx.grade, "成功");
+  assert.ok(withFx.state.risk < 0 + 0 || withFx.effects.risk < 0);
   const noTags = resolveEvent(makeState(), ev, { type: "respond", text: "" }, {});
   assert.equal(noTags.grade, "失敗");
   assert.ok(noTags.state.funds < 1000);
@@ -52,8 +52,8 @@ function makeState(overrides = {}) {
 // 造語が多いとSNSイベントの振れ幅が増幅される
 {
   const ev = getEvent("ev-sns-buzz");
-  const few = resolveEvent(makeState(), ev, { type: "respond", text: "理念を発信します" }, { "理念浸透": 3 }, 0);
-  const many = resolveEvent(makeState(), ev, { type: "respond", text: "理念を発信します" }, { "理念浸透": 3 }, 3);
+  const few = resolveEvent(makeState(), ev, { type: "respond", text: "理念を発信します" }, { faith: 3 }, 0);
+  const many = resolveEvent(makeState(), ev, { type: "respond", text: "理念を発信します" }, { faith: 3 }, 3);
   assert.ok(Math.abs(many.effects.reputation) > Math.abs(few.effects.reputation));
 }
 
@@ -86,8 +86,8 @@ console.log("EVENTS TESTS OK");
     { relevance: 2, specificity: 2, consistency: 0, rationale: "正面から具体的に向き合っている" });
   assert.equal(res.grade, "成功");
   assert.ok(res.lines.some((l) => l.startsWith("AI判定：")));
-  // 的外れな社長命令はタグが強くても成功にならない
-  const res2 = resolveEvent(s, ev, { type: "respond", text: "頑張ります" }, { "規律統制": 5 }, 0,
+  // 的外れな社長命令は台帳の効果が強くても成功にならない
+  const res2 = resolveEvent(s, ev, { type: "respond", text: "頑張ります" }, { discipline: 5 }, 0,
     { relevance: 0, specificity: 0, consistency: 0, rationale: "イベントに触れていない" });
   assert.notEqual(res2.grade, "成功");
 }
@@ -96,12 +96,12 @@ console.log("EVENTS TESTS OK");
 {
   const s = makeState();
   const ev = getEvent("ev-labor-crackdown") || EVENTS.find((e) => e.category === "法改正・規制");
-  const res = resolveEvent(s, ev, { type: "respond", text: "無視" }, { "規律統制": 5, "福利厚生": 5 }, 0);
+  const res = resolveEvent(s, ev, { type: "respond", text: "無視" }, { discipline: 5, stamina: 5 }, 0);
   assert.equal(res.grade, "静観", JSON.stringify(res.lines));
   const aiRes = resolveEvent(s, ev, { type: "respond", text: "注視していく" }, {}, 0,
     { relevance: 1, specificity: 0, consistency: 0, rationale: "対策を講じていない" });
   assert.equal(aiRes.grade, "失敗", JSON.stringify(aiRes.lines));
-  const okRes = resolveEvent(s, ev, { type: "respond", text: "労務管理を徹底する" }, { "規律統制": 3 }, 0,
+  const okRes = resolveEvent(s, ev, { type: "respond", text: "労務管理を徹底する" }, { discipline: 3 }, 0,
     { relevance: 2, specificity: 0, consistency: 0, rationale: "正面から向き合っている" });
   assert.notEqual(okRes.grade, "失敗");
 }

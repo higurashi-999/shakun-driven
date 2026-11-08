@@ -3,8 +3,8 @@
 export const TURNOVER_COST = 234; // 離職コスト（万円）＝年収の50%（sim.js の PARAMS と一致）
 
 /* ================= 融資審査（第4週の固定イベント） ================= */
-// 台帳の整合性と初期実績から、合否・金額・金利と理由を決める。
-export function judgeLoan(state, tags) {
+// 社訓の顔ぶれと初期実績から、合否・金額・金利と理由を決める（M13：効果5項目で判定）。
+export function judgeLoan(state, effects) {
 const factors = [];
 let score = 50;
 const add = (label, points) => {
@@ -19,14 +19,13 @@ const avgFaith = state.employees.length
 if (active.length >= 3) add(`社訓が ${active.length} 件そろい、経営方針が形になっている`, 8);
 else if (active.length >= 1) add("社訓はあるが、まだ方針として薄い", 2);
 else add("社訓が1件もなく、経営方針が見えない", -12);
-const discipline = tags["規律統制"] || 0;
-if (discipline >= 1.5) add("規律・管理の社訓が効いており、数字の管理が期待できる", 8);
-const costCut = tags["コスト削減"] || 0;
-if (costCut >= 1.5) add("コスト意識の高い社訓がある", 5);
+const fx = effects || {};
+if ((fx.discipline || 0) >= 2) add("規律強化の社訓が効いており、数字の管理が期待できる", 8);
+if ((fx.sales || 0) >= 2) add("売上向上の社訓があり、成長が見込める", 5);
 const fundsPts = state.mode === "black" ? [15, 8, -15] : [10, 5, -10];
-if (state.funds >= 800) add(`資金 ${state.funds} 万円と runway に余裕がある`, fundsPts[0]);
-else if (state.funds >= 500) add(`資金 ${state.funds} 万円を維持している`, fundsPts[1]);
-else if (state.funds < 300) add(`資金が ${state.funds} 万円まで減っており、資金繰りが厳しい`, fundsPts[2]);
+if (state.funds >= 800) add(`資金 ${Math.round(state.funds)} 万円と余裕がある`, fundsPts[0]);
+else if (state.funds >= 500) add(`資金 ${Math.round(state.funds)} 万円を維持している`, fundsPts[1]);
+else if (state.funds < 300) add(`資金が ${Math.round(state.funds)} 万円まで減っており、資金繰りが厳しい`, fundsPts[2]);
 if (state.mode !== "black") {
 if (avgFaith >= 55) add("社員の信仰度（結束）が高く、定着が見込める", 8);
 else if (avgFaith < 45 && state.employees.length) add("社員の信仰度が低く、離職が懸念される", -8);
@@ -48,33 +47,38 @@ lines.push(state.mode === "black" ? "※ ブラックモードの審査：数字
 for (const f of factors) lines.push(`${f.points >= 0? "＋": "－"} ${f.label}（${f.points >= 0? "+": ""}${f.points}）`);
 if (amount > 0) {
 next.funds = Math.round((next.funds + amount) * 10) / 10;
-lines.push(`融資 ${amount} 万円（金利 ${rate}%）が実行され、資金は ${next.funds} 万円になりました。`);
+lines.push(`融資 ${amount} 万円（金利 ${rate}%）が実行され、資金は ${Math.round(next.funds)} 万円になりました。`);
 } else {
 lines.push("今回は融資が通りませんでした。資金と社員の状態を立て直し、実績を作ってから再挑戦です（本編では再審査あり）。");
 }
 next.loanDone = true;
-next.loanResult = { score, grade, amount, rate, week: state.week};
+next.loanResult = {
+  score, grade, amount, rate, week: state.week,
+  factors,
+  criteria: { funds: Math.round(state.funds), fundsTarget: 800, avgFaith: Math.round(avgFaith), faithTarget: 55, faithCounted: state.mode !== "black" },
+};
 return { state: next, lines, result: next.loanResult};
 }
 
 /* ================= 面談（退職相談） ================= */
+const AXIS_LABELS = { sales: "売上向上", stamina: "体力向上", faith: "信仰向上", rep: "評判向上", discipline: "規律強化" };
 export const CONCERNS = {
 rest: {
 label: "体力・休みの訴え",
 keywords: ["休", "残業", "負担", "交代", "健康", "休日"],
-tags: ["福利厚生"],
+axes: ["stamina"],
 opening: "社長、少し話せますか。正直、体力が限界で……この働き方が続くなら、続けられそうにありません。",
 },
 conditions: {
 label: "待遇の訴え",
 keywords: ["給与", "給料", "待遇", "評価", "手当", "ボーナス", "昇給", "生活"],
-tags: ["福利厚生", "理念浸透"],
+axes: ["stamina", "faith"],
 opening: "社長、待遇のことで相談です。今の給料では将来が見えなくて、正直、不安なんです。",
 },
 future: {
 label: "将来への不安",
 keywords: ["将来", "成長", "キャリア", "挑戦", "役割", "期待", "目標"],
-tags: ["挑戦奨励", "理念浸透"],
+axes: ["faith", "sales"],
 opening: "社長、自分の将来のことで悩んでいます。この会社で自分がどうなっていけるのか、見えなくて……。",
 },
 };
@@ -102,9 +106,9 @@ if (conditionsNeed >= futureNeed) return "conditions";
 return "future";
 }
 
-// 面談の判定：状態＋発言のキーワード＋台帳整合性（言行不一致の検出つき）
-// tags はフェーズ調整済みの実効タグマップ
-export function judgeInterview(state, empId, replyText, tags) {
+// 面談の判定：状態＋発言のキーワード＋台帳の効果による裏付け（言行不一致の検出つき）
+// effects は台帳の効果集計（5項目）
+export function judgeInterview(state, empId, replyText, effects) {
 const emp = state.employees.find((e) => e.id === empId);
 if (!emp) return null;
 const concernKey = detectConcern(emp);
@@ -119,18 +123,19 @@ add(`発言が本人の訴え（${concern.label}）に触れている`, 2);
 } else {
 add(`発言が本人の訴え（${concern.label}）に触れていない`, 0);
 }
-const tagEff = Math.max(...concern.tags.map((t) => tags[t] || 0));
-if (tagEff >= 2.5) add(`台帳に裏付けがある（${concern.tags.join("・")} の社訓が強い）`, 3);
-else if (tagEff >= 1) add("台帳にある程度の裏付けがある", 2);
-else if (tagEff > 0) add("台帳の裏付けは弱い", 1);
+const axisEff = Math.max(...concern.axes.map((t) => (effects || {})[t] || 0));
+if (axisEff >= 3) add(`台帳に裏付けがある（${concern.axes.map((a) => AXIS_LABELS[a]).join("・")} の効果が強い）`, 3);
+else if (axisEff === 2) add("台帳にある程度の裏付けがある", 2);
+else if (axisEff === 1) add("台帳の裏付けは弱い", 1);
+else if (axisEff < 0) add("台帳の社訓が逆向きに効いている", 0);
 else add("台帳に裏付けとなる社訓がない（口約束になる）", 0);
 
 // 言行不一致：発言と台帳が食い違うと信用を落とす
-if (/残業をなく|残業を減ら|休ませ|定時/.test(text) && (tags["労働強化"] || 0) >= 2) {
-add("⚠ 言行不一致：休ませると言いながら、労働強化の社訓が強く残っている", -2);
+if (/残業をなく|残業を減ら|休ませ|定時/.test(text) && ((effects || {}).sales || 0) >= 3) {
+add("⚠ 言行不一致：休ませると言いながら、売上向上の社訓が強く残っている", -2);
 }
-if (/給料を上|昇給|手当を増|待遇を改善/.test(text) && (tags["コスト削減"] || 0) >= 2) {
-add("⚠ 言行不一致：待遇改善を約束しながら、コスト削減の社訓が強く残っている", -2);
+if (/給料を上|昇給|手当を増|待遇を改善/.test(text) && ((effects || {}).discipline || 0) >= 3) {
+add("⚠ 言行不一致：待遇改善を約束しながら、規律強化（切り詰め）の社訓が強く残っている", -2);
 }
 if (emp.faith >= 55) add("本人の信仰度が高く、踏みとどまりやすい", 1);
 

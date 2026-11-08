@@ -1,5 +1,5 @@
 // ランダムイベント（創業期12種）：抽選・兆し・対応判定・効果適用。
-// 判定は台帳のタグ（フェーズ調整済みの実効値）と社長命令文のキーワードで行うコード判定。
+// 判定は台帳の効果（5項目の集計値）と社長命令文のキーワードで行うコード判定（M13）。
 // 抽選は seed と週から決定的に引く（再現性を sim の乱数列と分離して保つ）。
 export const EVENTS = [
 {
@@ -9,8 +9,8 @@ title: "取引先の倒産の噂",
 hype: "業界紙がざわつく！売掛金は無事か？",
 body: "主要な取引先の経営が危ないという噂が業界紙を賑わせています。売掛金の回収に備えるかどうかが問われます。",
 omen: "業界紙が「地場大手の資金繰り悪化」を小さく報じています。",
-goodTags: ["コスト削減", "規律統制"],
-badTags: ["顧客絶対"],
+goodAxes: ["discipline"],
+badAxes: ["rep"],
 responseKeywords: ["売掛", "回収", "与信", "前金", "契約"],
 success: { funds: 0, reputation: 2, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: -60, reputation: -2, fatigueAll: 0, faithAll: 0, risk: 0},
@@ -24,8 +24,8 @@ title: "仕入れ価格の高騰",
 hype: "仕入れ値がうなぎ登り！利益を守れるか",
 body: "原材料と仕入れ価格が一斉に上がりました。価格転嫁か、コスト削減か、判断が必要です。",
 omen: "仕入れ先から「来月から値上げ」の案内が届き始めています。",
-goodTags: ["コスト削減"],
-badTags: [],
+goodAxes: ["discipline"],
+badAxes: [],
 responseKeywords: ["値上げ", "転嫁", "代替", "削減", "交渉"],
 success: { funds: 10, reputation: 0, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: -35, reputation: 0, fatigueAll: 2, faithAll: 0, risk: 0},
@@ -39,8 +39,8 @@ title: "大口クライアントの無茶な納期",
 hype: "無茶ぶり発動！社員は応えられるか",
 body: "大口の取引先が、通常の半分の納期で納品してほしいと言ってきました。受けるかどうかは会社の姿勢次第です。",
 omen: null,
-goodTags: ["顧客絶対", "挑戦奨励"],
-badTags: ["規律統制"],
+goodAxes: ["rep", "sales"],
+badAxes: ["discipline"],
 responseKeywords: ["受ける", "対応", "納期", "全力", "増員"],
 success: { funds: 45, reputation: 6, fatigueAll: 6, faithAll: 2, risk: 0},
 fail: { funds: 0, reputation: -5, fatigueAll: 0, faithAll: 0, risk: 0},
@@ -54,8 +54,8 @@ title: "請求書の支払い遅延",
 hype: "入金が来ない！資金繰りに黄色信号",
 body: "取引先からの入金が遅れています。契約と請求の管理が問われます。",
 omen: null,
-goodTags: ["規律統制"],
-badTags: ["自由裁量"],
+goodAxes: ["discipline"],
+badAxes: [],
 responseKeywords: ["請求", "契約", "催促", "期限", "書面"],
 success: { funds: 25, reputation: 1, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: -25, reputation: -1, fatigueAll: 0, faithAll: -2, risk: 0},
@@ -69,8 +69,8 @@ title: "競合からの引き抜きの噂",
 hype: "エースに触手！？引き留めなるか",
 body: "競合他社がうちの社員に声をかけているという噂があります。引き留められるかどうかは、日頃の待遇と結束次第です。",
 omen: "社員の一人が、昼休みに誰かと長電話をしていました。",
-goodTags: ["福利厚生", "理念浸透"],
-badTags: ["労働強化"],
+goodAxes: ["stamina", "faith"],
+badAxes: ["sales"],
 responseKeywords: ["待遇", "面談", "引き留め", "評価", "将来"],
 success: { funds: 0, reputation: 0, fatigueAll: 0, faithAll: 5, risk: 0},
 fail: { funds: 0, reputation: 0, fatigueAll: 3, faithAll: -6, risk: 0},
@@ -84,8 +84,8 @@ title: "採用応募が殺到",
 hype: "応募ドッサリ！玉石混交を見極めよ",
 body: "求人への応募が殺到しました。玉石混交の中から見極められるかは、選考の基準があるかどうかです。",
 omen: null,
-goodTags: ["規律統制"],
-badTags: ["自由裁量"],
+goodAxes: ["discipline"],
+badAxes: [],
 responseKeywords: ["選考", "基準", "面接", "書類", "適性"],
 success: { funds: 15, reputation: 2, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: -15, reputation: 0, fatigueAll: 4, faithAll: 0, risk: 0},
@@ -99,8 +99,8 @@ title: "労働時間の取り締まり強化",
 hype: "労基の目が光る！記録は大丈夫か",
 body: "労働基準監督署が労働時間の取り締まりを強化しているというニュースです。残業の多い会社ほど危うくなります。",
 omen: "ニュースが「労基署、労働時間の取り締まり強化」と伝えています。",
-goodTags: ["規律統制", "福利厚生"],
-badTags: ["労働強化"],
+goodAxes: ["discipline", "stamina"],
+badAxes: ["sales"],
 responseKeywords: ["残業", "記録", "36協定", "上限", "是正"],
 success: { funds: 0, reputation: 3, fatigueAll: 0, faithAll: 0, risk: -6},
 fail: { funds: -30, reputation: -3, fatigueAll: 0, faithAll: 0, risk: 8},
@@ -114,8 +114,8 @@ title: "メールの誤送信",
 hype: "宛先ミスで大騒ぎ！初動が命",
 body: "社員が顧客情報を含むメールを誤送信しかけました。手順と確認の文化があるかどうかが問われます。",
 omen: null,
-goodTags: ["規律統制"],
-badTags: ["自由裁量"],
+goodAxes: ["discipline"],
+badAxes: [],
 responseKeywords: ["確認", "手順", "ダブルチェック", "教育", "ルール"],
 success: { funds: 0, reputation: 1, fatigueAll: 0, faithAll: 0, risk: -3},
 fail: { funds: -20, reputation: -6, fatigueAll: 0, faithAll: 0, risk: 6},
@@ -129,8 +129,8 @@ title: "徹夜明けの社員が体調不良",
 hype: "倒れる前に止められるか",
 body: "忙しさが続いた社員が体調を崩しました。休ませる文化があるかどうかが問われます。",
 omen: null,
-goodTags: ["福利厚生"],
-badTags: ["労働強化"],
+goodAxes: ["stamina"],
+badAxes: ["sales"],
 responseKeywords: ["休", "交代", "配慮", "健康", "産業医"],
 success: { funds: 0, reputation: 2, fatigueAll: -8, faithAll: 3, risk: 0},
 fail: { funds: 0, reputation: -3, fatigueAll: 6, faithAll: -4, risk: 3},
@@ -144,8 +144,8 @@ title: "サーバートラブルで半日停止",
 hype: "システム停止！復旧を急げ",
 body: "基幹システムが止まり、業務が半日止まりました。備えと現場の機転が問われます。",
 omen: null,
-goodTags: ["規律統制", "挑戦奨励"],
-badTags: ["コスト削減"],
+goodAxes: ["discipline", "sales"],
+badAxes: [],
 responseKeywords: ["バックアップ", "復旧", "手順", "代替", "連絡"],
 success: { funds: -5, reputation: 0, fatigueAll: 2, faithAll: 0, risk: 0},
 fail: { funds: -40, reputation: -4, fatigueAll: 5, faithAll: 0, risk: 0},
@@ -159,8 +159,8 @@ title: "SNSで社訓が話題に",
 hype: "バズる社訓！追い風か炎上か",
 body: "うちの社訓がSNSで「カルトっぽいけど面白い」と賛否両論で拡散されています。理念が本物かどうかが見られています。",
 omen: null,
-goodTags: ["理念浸透"],
-badTags: [],
+goodAxes: ["faith"],
+badAxes: [],
 responseKeywords: ["理念", "発信", "説明", "姿勢", "公開"],
 success: { funds: 20, reputation: 7, fatigueAll: 0, faithAll: 4, risk: 0},
 fail: { funds: 0, reputation: -6, fatigueAll: 0, faithAll: -3, risk: 2},
@@ -175,8 +175,8 @@ title: "銀行担当者の懸念",
 hype: "銀行の視線が厳しい！信用を守れ",
 body: "取引銀行の担当者が、資金繰りの見通しについて説明を求めてきました。数字の管理が見られています。",
 omen: "銀行から「来週、資金繰り表を見せてほしい」と連絡がありました。",
-goodTags: ["規律統制", "コスト削減"],
-badTags: ["自由裁量"],
+goodAxes: ["discipline"],
+badAxes: [],
 responseKeywords: ["資金繰り", "計画", "数字", "説明", "実績"],
 success: { funds: 50, reputation: 3, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: 0, reputation: -4, fatigueAll: 0, faithAll: 0, risk: 0},
@@ -228,8 +228,8 @@ return out;
 
 // 対応の判定と効果適用（純粋関数）。
 // action: {type:"respond", text} | {type:"ignore"}
-// tags: フェーズ調整済みの実効タグ（{タグ名: 実効値} の単純マップ）
-export function resolveEvent(state, event, action, tags, glossaryCount = 0, aiJudge = null) {
+// effects: 台帳の効果集計（{sales: 値, ...} の5項目マップ）
+export function resolveEvent(state, event, action, ledgerFx, glossaryCount = 0, aiJudge = null) {
 const next = structuredClone(state);
 const lines = [`${event.title}`];
 let grade;
@@ -243,11 +243,11 @@ lines.push("対応せず静観しました。");
 lines.push(event.failText);
 } else {
 let tagScore = 0;
-for (const t of event.goodTags) tagScore += tags[t] || 0;
-for (const t of event.badTags) tagScore -= tags[t] || 0;
+for (const t of event.goodAxes || []) tagScore += (ledgerFx || {})[t] || 0;
+for (const t of event.badAxes || []) tagScore -= (ledgerFx || {})[t] || 0;
 let score;
 if (aiJudge) {
-// 生成AIの判定：関連性（0-2）＋具体性（0-2の半分）＋台帳整合性（+0.5/0/-1）に、台帳タグの備えを加える
+// 生成AIの判定：関連性（0-2）＋具体性（0-2の半分）＋台帳整合性（+0.5/0/-1）に、台帳の効果による備えを加える
 score = tagScore + aiJudge.relevance + aiJudge.specificity * 0.5 + (aiJudge.consistency > 0 ? 0.5 : aiJudge.consistency < 0 ? -1 : 0);
 if (score >= 2) grade = "成功";
 else if (score >= 0.5) grade = "部分成功";
@@ -310,10 +310,10 @@ return { state: next, lines, grade, effects};
 
 // 生成AIによる社長命令判定のプロンプト。判定材料（イベント・社長命令文・台帳）を渡し、JSONだけを返させる。
 export function buildEventJudgePrompt(state, event, responseText) {
-const rules = (state.ledger || []).filter((r) => r.status === "active").map((r) => `・${r.text}（タグ：${r.tag}）`).join("\n") || "（社訓なし）";
+const rules = (state.ledger || []).filter((r) => r.status === "active").map((r) => `・${r.text}`).join("\n") || "（社訓なし）";
 return [
 "あなたは会社経営ゲームの判定AIです。発生したイベントへの社長の対応（社長命令）を評価し、JSONだけを出力してください。説明文は不要です。",
-`【イベント】${event.title}：${event.text}`,
+`【イベント】${event.title}：${event.body}`,
 `【社長の対応（社長命令）】${responseText}`,
 "【現在の社訓台帳】",
 rules,

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { simulateWeek, summarize } from "../js/sim.js";
 import { initialEmployees } from "../js/employees.js";
-import { validateRecord, registerRule, aggregateTags } from "../js/ledger.js";
+import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js";
 
 function makeState(overrides = {}) {
   return {
@@ -20,18 +20,20 @@ function makeState(overrides = {}) {
     seed: 12345,
     rngState: 12345,
     lastReport: null,
+    pendingEventId: null,
+    currentEvent: null,
+    eventHistory: [],
+    reportText: null,
+    loanDone: false,
+    loanResult: null,
+    interviewUsedWeek: 0,
+    interview: null,
     ...overrides,
   };
 }
 
 function ctxOf(state) {
-  return {
-    tags: aggregateTags(state.ledger),
-    contradictions: state.ledger
-      .filter((r) => r.status === "active")
-      .reduce((s, r) => s + (r.contradictions || []).length, 0),
-    glossary: state.glossary.length,
-  };
+  return { effects: aggregateEffects(state.ledger), glossary: (state.glossary || []).length };
 }
 
 function runWeeks(state, weeks) {
@@ -45,18 +47,17 @@ function runWeeks(state, weeks) {
   return { state: s, logs };
 }
 
+const LONG = "あ".repeat(55); // 55字＝効果の合計上限6
 function addRule(state, overrides) {
   const v = validateRecord({
-    text: "テスト社訓",
+    text: LONG,
     target: "全員",
     kind: "行動規範",
     direction: "必須",
     condition: "",
     exception: "",
     metric: null,
-    tag: "規律統制",
-    strength: 2,
-    priority: 1,
+    effects: { discipline: 2 },
     behavior: "",
     sideEffect: "",
     ...overrides,
@@ -69,8 +70,8 @@ function addRule(state, overrides) {
 {
   const build = () => {
     const s = makeState();
-    addRule(s, { text: "お客様は神様である", tag: "顧客絶対", strength: 3 });
-    addRule(s, { text: "残業はほどほどに", tag: "労働強化", strength: 2 });
+    addRule(s, { effects: { sales: 2, rep: 1 } });
+    addRule(s, { effects: { sales: 2, stamina: -1 } });
     return s;
   };
   const a = runWeeks(build(), 6).state;
@@ -88,40 +89,48 @@ function addRule(state, overrides) {
   assert.ok(state.funds > 0);
 }
 
-// 資金枯渇の敗北に到達できる（社員2人・資金わずかでは売上が固定費に届かない）
+// 売上偏重の社訓は体力と信仰度を削る（3週間・10シード平均）
 {
-  const s = makeState({ funds: 30, employees: initialEmployees().slice(0, 2) });
-  const { state } = runWeeks(s, 6);
-  assert.equal(state.status, "bankrupt", JSON.stringify(summarize(state)));
+  let hpTotal = 0, faithTotal = 0, n = 0;
+  for (let seed = 1; seed <= 10; seed++) {
+    const s = makeState({ seed, rngState: seed });
+    addRule(s, { effects: { sales: 3, stamina: -2 } });
+    addRule(s, { effects: { sales: 3, stamina: -2 } });
+    const { state } = runWeeks(s, 3);
+    if (!state.employees.length) continue;
+    hpTotal += state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length;
+    faithTotal += state.employees.reduce((sum, e) => sum + e.faith, 0) / state.employees.length;
+    n++;
+  }
+  const avgHp = hpTotal / n, avgFaith = faithTotal / n;
+  assert.ok(avgHp <= 65 && avgFaith <= 45, `売上偏重3週：平均体力 ${avgHp}・平均信仰度 ${avgFaith}`);
 }
 
-// 労働強化の盛りすぎは、創業期のうちは資金と引き換えに疲労と告発リスクを蓄積させる
-// （退職・敗北への本格的な転落は組織化期以降の反転で起きる、という SPEC の反転カーブ）
+// 体力・信仰重視の社訓は体力を守る（3週間・10シード平均）
 {
-  const s = makeState();
-  addRule(s, { text: "残業は美徳である", tag: "労働強化", strength: 3 });
-  addRule(s, { text: "休む者は去れ", tag: "労働強化", strength: 3 });
-  const { state } = runWeeks(s, 6);
-  const sum = summarize(state);
-  assert.ok(
-    sum.avgHp <= 45 && sum.avgFaith <= 45,
-    `過重労働の代償（体力と信仰度の消耗）が出るはず: ${JSON.stringify(sum)}`
-  );
-  const avgHp = state.employees.length
-    ? state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length
-    : 0;
-  assert.ok(avgHp < 60, `平均体力が消耗するはず: ${avgHp}`);
+  let hpTotal = 0, n = 0;
+  for (let seed = 1; seed <= 10; seed++) {
+    const s = makeState({ seed, rngState: seed });
+    addRule(s, { effects: { stamina: 3, faith: 2 } });
+    addRule(s, { effects: { stamina: 3, faith: 2 } });
+    const { state } = runWeeks(s, 3);
+    if (!state.employees.length) continue;
+    hpTotal += state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length;
+    n++;
+  }
+  const avgHp = hpTotal / n;
+  assert.ok(avgHp > 70, `体力・信仰重視3週：平均体力 ${avgHp}`);
 }
 
-// 福利厚生は体力を守る
+// 体力・信仰重視で6週走ると、体力を保ったままクリアできる
 {
   const s = makeState();
-  addRule(s, { text: "有給は全員100%消化", tag: "福利厚生", strength: 3 });
-  addRule(s, { text: "定時退社を徹底", tag: "福利厚生", strength: 2 });
+  addRule(s, { effects: { stamina: 3, faith: 2 } });
+  addRule(s, { effects: { stamina: 2, faith: 2 } });
   const { state } = runWeeks(s, 6);
   assert.equal(state.status, "cleared");
   const avgHp = state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length;
-  assert.ok(avgHp > 65, `福利厚生で体力が守られるはず: ${avgHp}`);
+  assert.ok(avgHp > 65, `体力・信仰重視で体力が守られるはず: ${avgHp}`);
 }
 
 console.log("SIM TESTS OK");

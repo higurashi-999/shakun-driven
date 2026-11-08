@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.22">
+<link rel="stylesheet" href="css/style.css?v=20261102.23">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M12：ダッシュボード統合と矛盾の廃止）／仕様は SPEC.md を参照</p>
+  <p class="footnote">試作版（M13：効果5項目と人数・人件費の刷新）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -57,25 +57,28 @@
 
 <!-- 社長室（メイン画面の骨格） -->
 <section id="screen-office" class="screen">
+  <div class="mode-banner"><span id="st-mode">-</span>モードでプレイ中</div>
+  <div id="goal-panel" class="goal-panel">
+    <div class="goal-final">最終目標：上場審査をクリアする</div>
+    <div class="goal-head"><strong><span id="st-phase">創業期</span>の目標：6週を完走する</strong><span id="goal-progress-label"></span></div>
+    <div class="goal-segs" id="goal-segs"></div>
+  </div>
   <header class="status-bar dash-panel">
     <div class="dash-row dash-row-top">
-      <span class="dash-mode" id="st-mode">-</span>
-      <span class="dash-phase"><span id="st-phase">創業期</span><span class="dash-week">第<span id="st-week">1</span>週／全6週</span></span>
-      <span class="dash-funds">資金 <strong id="st-funds">-</strong><small>万円</small></span>
+      <span class="dash-funds-label">資金</span>
+      <span class="dash-funds"><strong id="st-funds">-</strong><small>万円</small></span>
     </div>
-    <div class="dash-row dash-row-sub">
-      <span class="dash-stat">社員 <strong id="st-employees">0</strong>人</span>
-      <span class="dash-stat">評判 <strong id="st-rep">50</strong><small id="st-rep-word"></small></span>
-      <span class="dash-stat">平均信仰度 <strong id="st-faith">-</strong></span>
-      <span class="dash-stat" id="st-risk-wrap">告発リスク <strong id="st-risk">-</strong><small id="st-risk-word"></small></span>
+    <div class="gauge"><div class="gauge-fill" id="funds-gauge-fill"></div></div>
+    <p class="gauge-caption" id="funds-gauge-caption"></p>
+    <div class="dash-grid">
+      <div class="dash-cell"><span class="dash-cell-label">社員</span><span class="dash-cell-value"><strong id="st-employees">0</strong>人</span><span class="dash-cell-caption" id="st-staff-caption"></span></div>
+      <div class="dash-cell"><span class="dash-cell-label">評判</span><span class="dash-cell-value"><strong id="st-rep">50</strong><small id="st-rep-word"></small></span><span class="gauge mini"><span class="gauge-fill" id="rep-gauge-fill"></span><span class="gauge-tick" style="left:60%"></span></span><span class="dash-cell-caption">良好の目安 60</span></div>
+      <div class="dash-cell"><span class="dash-cell-label">平均信仰度</span><span class="dash-cell-value"><strong id="st-faith">-</strong></span><span class="gauge mini"><span class="gauge-fill" id="faith-gauge-fill"></span><span class="gauge-tick" style="left:55%"></span></span><span class="dash-cell-caption" id="faith-gauge-caption"></span></div>
+      <div class="dash-cell" id="st-risk-wrap"><span class="dash-cell-label">告発リスク</span><span class="dash-cell-value"><strong id="st-risk">-</strong><small id="st-risk-word"></small></span><span class="gauge mini"><span class="gauge-fill risk" id="risk-gauge-fill"></span><span class="gauge-tick" style="left:20%"></span></span><span class="dash-cell-caption">安全の目安 20未満</span></div>
     </div>
   </header>
   <p id="funds-note" class="note funds-note"></p>
   <div class="office-body">
-    <div id="goal-panel" class="goal-panel">
-      <div class="goal-head"><strong>創業期の目標：6週を完走する</strong><span id="goal-progress-label"></span></div>
-      <div class="progress"><div id="goal-progress-bar"></div></div>
-    </div>
     <div id="guide-panel" class="guide-panel hidden">
       <div class="goal-head"><strong>はじめの進め方</strong><button id="btn-guide-close" class="mini">閉じる</button></div>
       <ol id="guide-steps"></ol>
@@ -118,11 +121,12 @@
 <!-- 社訓エディタ -->
 <section id="screen-editor" class="screen">
   <h2>社訓エディタ</h2>
-  <p class="note">社訓・就業規則・経営方針を自由文で書いてください。AIが構造化し、社員がどう動くかをプレビューします。</p>
+  <p class="note">社訓・就業規則・経営方針を自由文で書いてください。AIが構造化し、社員がどう動くかをプレビューします。効果は5項目（売上向上／体力向上／信仰向上／評判向上／規律強化）に付きます。</p>
   <label class="field">
-    <span>社訓・ルール（自由文）</span>
-    <textarea id="ed-text" rows="3" placeholder="例：お客様は神様である／会議は15分まで"></textarea>
+    <span>社訓・ルール（自由文、60字まで）</span>
+    <textarea id="ed-text" rows="3" maxlength="60" placeholder="例：お客様は神様である／会議は15分まで"></textarea>
   </label>
+  <p id="ed-charcount" class="note">0字（効果の合計上限 1）― 長く具体的に書くほど、付けられる効果の合計が増えます（10字ごとに+1、最大6）</p>
   <div class="ed-examples">
     <span class="note">書き方の例（タップで入力できます）：</span>
     <button class="ex-chip" data-ex="顧客からの問い合わせには、当日中に必ず返信すること">顧客絶対の例</button>
@@ -194,6 +198,9 @@
       <button id="btn-ev-ignore" class="secondary">静観する</button>
     </div>
     <p class="note">静観は正式な選択肢です。被害は出ますが、余計なリスクは増えません。</p>
+    <div class="row">
+      <button id="btn-ev-back" class="secondary">社長室へ戻る（対応は後でもできます）</button>
+    </div>
   </div>
   <div id="ev-result-wrap" class="hidden">
     <pre id="ev-result" class="preview"></pre>
@@ -208,12 +215,17 @@
   <h2>融資審査（初回）</h2>
   <p>銀行と公庫の担当者が、事業計画としての社訓台帳と、ここまでの実績を審査します。資金と社員の状態が、そのまま信用になります。</p>
   <div id="loan-intro">
+    <h3>審査の目安と現在の状態</h3>
+    <div id="loan-precheck"></div>
+    <p class="note">スコア60以上で優遇条件（500万円・金利1.5%）、40以上で通常条件（350万円・金利2.5%）、40未満は不合格です。</p>
     <div class="row">
       <button id="btn-loan-apply" class="primary">審査を受ける</button>
+      <button id="btn-loan-back" class="secondary">社長室へ戻る</button>
     </div>
   </div>
   <div id="loan-result-wrap" class="hidden">
     <div id="loan-stamp" class="decision-stamp hidden"></div>
+    <div id="loan-detail"></div>
     <pre id="loan-result" class="preview"></pre>
     <div class="row">
       <button id="btn-loan-done" class="primary">週報へ</button>
@@ -228,6 +240,7 @@
   <div id="iv-picker"></div>
   <div id="iv-main" class="hidden">
     <p id="iv-who" class="note"></p>
+    <p id="iv-emp-info" class="note"></p>
     <p id="iv-turns" class="note"></p>
     <div id="iv-log" class="chat-log"></div>
     <div id="iv-action-wrap">
@@ -256,12 +269,12 @@
 <section id="screen-result" class="screen">
   <h2 id="result-title">結果</h2>
   <pre id="result-summary" class="preview"></pre>
-  <p class="note">試作Step 1はここまでです。本編（全28週・組織化期以降）は今後のマイルストーンで実装します。</p>
+  <p class="note">試作版（創業期編）はここまでです。本編（全28週・組織化期以降）は今後のマイルストーンで実装します。</p>
   <div class="row">
     <button id="btn-result-to-title" class="primary">タイトルへ</button>
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.22"></script>
+<script type="module" src="js/app.js?v=20261102.23"></script>
 </body>
 </html>

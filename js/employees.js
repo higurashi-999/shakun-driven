@@ -2,11 +2,11 @@
 // 個性は 能力／野心／メンタル（各1〜10、画面表示あり）と、体の強さ stamina（裏側のパラメータ、体力ゲージの減り方に効く）。
 // 状態は 体力 hp（ゲージ式：仕事で減り休むと回復）／信仰度 faith の2軸（各0〜100）。旧・疲労は 100-hp、不満は信仰度へ吸収（M11）。
 export const INITIAL_EMPLOYEES = [
-  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-2", name: "砂川 蓮", ability: 6, stamina: 9, ambition: 4, mental: 8, hp: 90, faith: 50, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-3", name: "桐生 葵", ability: 9, stamina: 4, ambition: 9, mental: 5, hp: 80, faith: 45, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-5", name: "八雲 奏", ability: 7, stamina: 6, ambition: 7, mental: 4, hp: 85, faith: 50, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, expTier: "ベテラン", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-2", name: "砂川 蓮", ability: 6, stamina: 9, ambition: 4, mental: 8, hp: 90, faith: 50, expTier: "中堅", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-3", name: "桐生 葵", ability: 9, stamina: 4, ambition: 9, mental: 5, hp: 80, faith: 45, expTier: "新人", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, expTier: "ベテラン", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-5", name: "八雲 奏", ability: 7, stamina: 6, ambition: 7, mental: 4, hp: 85, faith: 50, expTier: "中堅", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
 ];
 
 export function initialEmployees() {
