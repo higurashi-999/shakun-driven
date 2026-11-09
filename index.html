@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.23">
+<link rel="stylesheet" href="css/style.css?v=20261102.24">
 </head>
 <body>
 
@@ -60,7 +60,7 @@
   <div class="mode-banner"><span id="st-mode">-</span>モードでプレイ中</div>
   <div id="goal-panel" class="goal-panel">
     <div class="goal-final">最終目標：上場審査をクリアする</div>
-    <div class="goal-head"><strong><span id="st-phase">創業期</span>の目標：6週を完走する</strong><span id="goal-progress-label"></span></div>
+    <div class="goal-head"><strong><span id="st-phase">創業期</span>の目標：6か月を完走する</strong><span id="goal-progress-label"></span></div>
     <div class="goal-segs" id="goal-segs"></div>
   </div>
   <header class="status-bar dash-panel">
@@ -82,7 +82,7 @@
     <div id="guide-panel" class="guide-panel hidden">
       <div class="goal-head"><strong>はじめの進め方</strong><button id="btn-guide-close" class="mini">閉じる</button></div>
       <ol id="guide-steps"></ol>
-      <p class="goal-rules">クリア：6週を完走する／敗北：資金が尽きる・社員が全員辞める</p>
+      <p class="goal-rules">クリア：6か月を完走する／敗北：資金が尽きる・社員が全員辞める</p>
     </div>
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
@@ -93,7 +93,8 @@
     <h3>社員</h3>
     <div id="emp-list"></div>
     <div class="row">
-      <button id="btn-advance" class="primary">週を進める</button>
+      <button id="btn-advance" class="primary">月を進める</button>
+      <button id="btn-hire">採用する（今月の候補）</button>
       <button id="btn-result" class="secondary hidden">結果を見る</button>
     </div>
     <div class="row">
@@ -101,11 +102,11 @@
       <button id="btn-loan" class="secondary hidden">融資審査を受ける</button>
     </div>
     <p id="office-note" class="note"></p>
-    <h3>週報</h3>
+    <h3>月報</h3>
     <div id="report-masthead" class="report-masthead hidden"></div>
     <div id="report-highlights" class="report-highlights hidden"></div>
     <p id="report-diff" class="report-diff hidden"></p>
-    <pre id="week-report" class="preview">まだ週を進めていません。社訓を整えてから「週を進める」を押してください。</pre>
+    <pre id="week-report" class="preview">まだ月を進めていません。社訓を整えてから「月を進める」を押してください。</pre>
     <details id="report-raw-wrap" class="hidden">
       <summary>素材ログ（数値の記録）</summary>
       <pre id="week-report-raw" class="preview"></pre>
@@ -143,7 +144,7 @@
     <h3>解釈プレビュー</h3>
     <pre id="ed-preview" class="preview"></pre>
     <div id="ed-swap-wrap" class="hidden">
-      <p class="note">有効な社訓は3つまでです。入れ替える場合は、廃止する社訓を選んでください（入れ替えは週1回まで、そのたび全員の信仰度が−3されます）。</p>
+      <p class="note">有効な社訓は3つまでです。入れ替える場合は、廃止する社訓を選んでください（入れ替えは月1回まで、そのたび全員の信仰度が−3されます）。</p>
       <label class="field"><span>入れ替えで廃止する社訓</span><select id="ed-swap-target"></select></label>
     </div>
     <div class="row">
@@ -205,7 +206,7 @@
   <div id="ev-result-wrap" class="hidden">
     <pre id="ev-result" class="preview"></pre>
     <div class="row">
-      <button id="btn-ev-done" class="primary">週報へ</button>
+      <button id="btn-ev-done" class="primary">月報へ</button>
     </div>
   </div>
 </section>
@@ -228,15 +229,22 @@
     <div id="loan-detail"></div>
     <pre id="loan-result" class="preview"></pre>
     <div class="row">
-      <button id="btn-loan-done" class="primary">週報へ</button>
+      <button id="btn-loan-done" class="primary">月報へ</button>
     </div>
   </div>
 </section>
 
 <!-- 面談 -->
+<section id="screen-hire" class="screen hidden">
+  <h2>採用</h2>
+  <p id="hire-note" class="note"></p>
+  <div id="hire-list"></div>
+  <button id="btn-hire-back">社長室へ戻る</button>
+</section>
+
 <section id="screen-interview" class="screen">
   <h2>1 on 1</h2>
-  <p class="note">週に1回だけ、社員を1人選んでじっくり話せます（最大5往復）。言葉次第では、相手の心が限界を迎えて会話が打ち切られることもあります。</p>
+  <p class="note">月に1回だけ、社員を1人選んでじっくり話せます（最大5往復）。言葉次第では、相手の心が限界を迎えて会話が打ち切られることもあります。</p>
   <div id="iv-picker"></div>
   <div id="iv-main" class="hidden">
     <p id="iv-who" class="note"></p>
@@ -269,12 +277,12 @@
 <section id="screen-result" class="screen">
   <h2 id="result-title">結果</h2>
   <pre id="result-summary" class="preview"></pre>
-  <p class="note">試作版（創業期編）はここまでです。本編（全28週・組織化期以降）は今後のマイルストーンで実装します。</p>
+  <p class="note">試作版（創業期編）はここまでです。本編（全28か月・組織化期以降）は今後のマイルストーンで実装します。</p>
   <div class="row">
     <button id="btn-result-to-title" class="primary">タイトルへ</button>
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.23"></script>
+<script type="module" src="js/app.js?v=20261102.24"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.23";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.23";
+} from "./store.js?v=20261102.24";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.24";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,18 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.23";
-import { extractRule} from "./extract.js?v=20261102.23";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.23";
-import { simulateWeek, summarize, salaryOf } from "./sim.js?v=20261102.23";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.23";
-import { narrateWeek } from "./report.js?v=20261102.23";
+} from "./ledger.js?v=20261102.24";
+import { extractRule} from "./extract.js?v=20261102.24";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.24";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary } from "./sim.js?v=20261102.24";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.24";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.24";
+import { narrateMonth } from "./report.js?v=20261102.24";
 
-import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.23";
-import { TITLE_ART } from "./assets.js?v=20261102.23";
+import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.24";
+import { TITLE_ART } from "./assets.js?v=20261102.24";
 
-const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview"];
+const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 
@@ -48,6 +49,7 @@ if (name === "ledger") renderLedger();
 if (name === "result") renderResult();
 if (name === "event") renderEvent();
 if (name === "loan") renderLoan();
+if (name === "hire") renderHire();
 if (name === "interview") renderInterview();
 }
 
@@ -84,9 +86,28 @@ for (const e of state.employees || []) {
 if (!e.expTier) { e.expTier = "中堅"; changed = true; }
 if (e.hiredWeek == null) { e.hiredWeek = 1; changed = true; }
 }
+// M14：週→月への移行（旧セーブは月へ読み替え、資金は月次スケールへ約4.3倍換算する）
+if (state.month == null) {
+state.month = state.week ?? 1;
+state.funds = Math.round((state.funds || 0) * 4.33);
+if (state.lastProfit != null) state.lastProfit = Math.round(state.lastProfit * 4.33);
+if (state.interviewUsedMonth == null) state.interviewUsedMonth = state.oneOnOneWeek ?? state.interviewUsedWeek ?? 0;
+if (state.lastSwapMonth == null) state.lastSwapMonth = state.lastSwapWeek ?? -1;
+if (state.abolishedMonth == null) state.abolishedMonth = state.abolishedWeek ?? -1;
+state.candidates = null;
+changed = true;
+}
+if (state.hireUsedMonth == null) { state.hireUsedMonth = 0; changed = true; }
+for (const e of state.employees || []) {
+if (e.hiredMonth == null) { e.hiredMonth = e.hiredWeek ?? 1; changed = true; }
+if (!e.dept) { e.dept = e.id === "emp-4" ? "indirect" : "direct"; changed = true; }
+if (!e.role) { e.role = (e.id === "emp-1" || e.id === "emp-4") ? "manager" : "member"; changed = true; }
+}
+for (const r of state.ledger || []) if (r.createdMonth == null && r.createdWeek != null) { r.createdMonth = r.createdWeek; changed = true; }
+for (const g of state.glossary || []) if (g.createdMonth == null && g.createdWeek != null) { g.createdMonth = g.createdWeek; changed = true; }
 // M13：旧タグ形式の社訓は、効果を持つ社訓として読み替えず、効果なし（要・再登録）として扱う（aggregateEffects が読み飛ばす）
 // M11：1on1セッションは週をまたいだら閉じる
-if (state.oneOnOne && state.oneOnOne.week !== state.week) { state.oneOnOne = null; changed = true; }
+if (state.oneOnOne && state.oneOnOne.month !== state.month) { state.oneOnOne = null; changed = true; }
 // M10：社訓3枠制への移行（有効が4件以上なら古い順に3件を残す）
 const actives = activeRules(state.ledger || []);
 if (actives.length > MAX_ACTIVE_RULES) {
@@ -105,6 +126,14 @@ if (e.hp <= 35 || e.faith <= 40) return "😩";
 if (e.faith >= 65 && e.hp >= 50) return "😄";
 return "🙂";
 }
+// 「注意」「退職圏」の理由（何が問題かをUIで明示する、M14）
+function moodReason(e) {
+if (e.hp <= 15) return "体力が危険域です";
+if (e.faith <= 25) return "信仰度が危険域です";
+if (e.hp <= 35) return "体力が低めです";
+if (e.faith <= 40) return "信仰度が低めです";
+return "";
+}
 function snapshotOf(s) {
 const n = s.employees.length || 1;
 return {
@@ -122,16 +151,19 @@ state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": 
 $("st-phase").textContent = PHASE_NAMES[state.phase] || "創業期";
 const avgFaithNow = state.employees.length ? state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length : 0;
 $("st-funds").textContent = Math.round(state.funds).toLocaleString("ja-JP");
-$("funds-gauge-fill").style.width = `${Math.max(0, Math.min(100, (state.funds / 800) * 100))}%`;
+$("funds-gauge-fill").style.width = `${Math.max(0, Math.min(100, (state.funds / 3500) * 100))}%`;
 $("funds-gauge-caption").textContent = state.loanDone
 ? "融資は完了しています"
-: state.funds >= 800
-? "融資の目安 800万円を達成しています"
-: `融資の目安 800万円まで あと${Math.round(800 - state.funds)}万円`;
+: state.funds >= 3500
+? "融資の目安 3,500万円を達成しています"
+: `融資の目安 3,500万円まで あと${Math.round(3500 - state.funds)}万円`;
 $("st-employees").textContent = String(state.employees.length);
-$("st-staff-caption").textContent = state.employees.length >= 9
-? "適正人数 9人に達しています"
-: `適正人数 9人まで あと${9 - state.employees.length}人（不足すると負担増）`;
+{
+const ds = deptSummary(state.employees);
+$("st-staff-caption").textContent = state.employees.length >= PARAMS.idealEmployees
+? `適正人数 ${PARAMS.idealEmployees}人に達しています（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／上限 ${PARAMS.maxEmployees}人）`
+: `適正人数 ${PARAMS.idealEmployees}人まで あと${PARAMS.idealEmployees - state.employees.length}人（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／不足すると負担増）`;
+}
 $("st-faith").textContent = state.employees.length ? String(Math.round(avgFaithNow)) : "-";
 $("faith-gauge-fill").style.width = `${Math.max(0, Math.min(100, avgFaithNow))}%`;
 $("faith-gauge-caption").textContent = avgFaithNow >= 55 ? "融資の目安 55を達成しています" : `融資の目安 55まで あと${Math.ceil(55 - avgFaithNow)}`;
@@ -146,9 +178,9 @@ $("st-risk-word").textContent = state.risk >= 35 ? "危険" : state.risk >= 20 ?
 $("risk-gauge-fill").style.width = `${Math.max(0, Math.min(100, state.risk))}%`;
 }
 $("funds-note").textContent = state.lastProfit == null ? "" :
-state.lastProfit > 0 ? `直近週の収支：+${Math.round(state.lastProfit)}万円（黒字）` :
-state.lastProfit < 0 ? (Math.floor(state.funds / -state.lastProfit) > 12 ? `直近週の収支：${Math.round(state.lastProfit)}万円（資金にはまだ余裕があります）` : `直近週の収支：${Math.round(state.lastProfit)}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}週もちます`) :
-"直近週の収支：±0万円";
+state.lastProfit > 0 ? `直近月の収支：+${Math.round(state.lastProfit)}万円（黒字）` :
+state.lastProfit < 0 ? (Math.floor(state.funds / -state.lastProfit) > 12 ? `直近月の収支：${Math.round(state.lastProfit)}万円（資金にはまだ余裕があります）` : `直近月の収支：${Math.round(state.lastProfit)}万円 ― このペースだと資金はあと約${Math.max(1, Math.floor(state.funds / -state.lastProfit))}か月もちます`) :
+"直近月の収支：±0万円";
 const active = activeRules(state.ledger);
 const aggFx = aggregateEffects(state.ledger);
 const topFx = Object.entries(aggFx)
@@ -160,20 +192,20 @@ $("ledger-summary").textContent =
 `有効な社訓 ${active.length} 件／造語 ${state.glossary.length} 件` +
 (topFx.length? `／主な効果：${topFx.join("、")}`: "");
 // 目標パネル（M6）
-$("goal-progress-label").textContent = `第${Math.min(state.week, 6)}週／全6週`;
+$("goal-progress-label").textContent = `第${Math.min(state.month, 6)}月／全6か月`;
 $("goal-segs").innerHTML = "";
 for (let i = 1; i <= 6; i++) {
 const seg = document.createElement("span");
-seg.className = "goal-seg" + (i < state.week ? " done" : i === state.week && state.status === "playing" ? " now" : "");
-seg.textContent = `第${i}週`;
+seg.className = "goal-seg" + (i < state.month ? " done" : i === state.month && state.status === "playing" ? " now" : "");
+seg.textContent = `第${i}月`;
 $("goal-segs").appendChild(seg);
 }
 // 初回ガイド（M6）
 const guideSteps = [
 { label: "社訓を1件、台帳に登録してみる", done: active.length >= 1 },
-{ label: "「週を進める」で1週間を回してみる", done: state.week >= 2 },
-{ label: "イベントが起きたら社長命令で対応する（静観も立派な選択肢）", done: (state.eventHistory || []).length >= 1 || state.week >= 3 },
-{ label: "第4週の融資審査に備える（資金800万円・平均信仰度55が目安）", done: !!state.loanDone },
+{ label: "「月を進める」で1か月を回してみる", done: state.month >= 2 },
+{ label: "イベントが起きたら社長命令で対応する（静観も立派な選択肢）", done: (state.eventHistory || []).length >= 1 || state.month >= 3 },
+{ label: "第4月の融資審査に備える（資金3,500万円・平均信仰度55が目安）", done: !!state.loanDone },
 ];
 $("guide-panel").classList.toggle("hidden", !!state.guideClosed || guideSteps.every((g) => g.done));
 $("guide-steps").innerHTML = guideSteps.map((g) => `<li class="${g.done ? "done" : ""}">${g.done ? "✓ " : ""}${g.label}</li>`).join("");
@@ -199,8 +231,27 @@ meta.appendChild(row);
 card.appendChild(meta);
 const prof0 = document.createElement("p");
 prof0.className = "note emp-sub";
-prof0.textContent = `経験区分：${e.expTier || "中堅"}／人件費 週${salaryOf(e, state.week)}万円`;
+prof0.textContent = `${(e.dept || "direct") === "direct" ? "直接部門" : "間接部門"}／${e.role === "manager" ? "責任者" : "社員"}／経験区分：${e.expTier || "中堅"}／人件費 月${salaryOf(e, state.month)}万円`;
 card.appendChild(prof0);
+{
+const ops = document.createElement("div");
+ops.className = "emp-ops";
+const deptBtn = document.createElement("button");
+deptBtn.type = "button";
+deptBtn.className = "mini-btn";
+deptBtn.textContent = (e.dept || "direct") === "direct" ? "間接部門へ異動" : "直接部門へ異動";
+deptBtn.addEventListener("click", () => changeDept(e.id));
+ops.appendChild(deptBtn);
+if (e.role !== "manager") {
+const mgrBtn = document.createElement("button");
+mgrBtn.type = "button";
+mgrBtn.className = "mini-btn";
+mgrBtn.textContent = "責任者に任命";
+mgrBtn.addEventListener("click", () => appointManager(e.id));
+ops.appendChild(mgrBtn);
+}
+card.appendChild(ops);
+}
 if (state.mode!== "black") name.textContent = `${moodOf(e)} ${e.name}`;
 const meters = document.createElement("div");
 meters.className = "meters";
@@ -227,33 +278,40 @@ const prof = document.createElement("p");
 prof.className = "emp-profit";
 if (e.lastProfit != null) {
 const sign = e.lastProfit >= 0 ? "+" : "";
-prof.innerHTML = `先週の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>`;
+prof.innerHTML = `先月の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>`;
 const detail = document.createElement("p");
 detail.className = "emp-profit-detail";
-detail.innerHTML = `<span class="chunk">売上 ${Math.round(e.lastSales)}万円</span>＋<span class="chunk">コストダウン ${Math.round(e.lastSaving)}万円</span>−<span class="chunk">人件費 ${Math.round(e.lastSalary ?? 9)}万円</span>−<span class="chunk">その他 ${Math.round(e.lastOtherCost ?? Math.max(0, e.lastCost - 9))}万円</span>`;
+const salDisp = Math.round(e.lastSalary ?? salaryOf(e, state.month));
+const otherDisp = Math.round(e.lastOtherCost ?? Math.max(0, (e.lastCost ?? salDisp) - salDisp));
+detail.innerHTML = `<span class="chunk">売上 ${Math.round(e.lastSales)}万円</span>＋<span class="chunk">コストダウン ${Math.round(e.lastSaving)}万円</span>−<span class="chunk">人件費 ${salDisp}万円</span>−<span class="chunk">1人あたり固定費 ${otherDisp}万円</span>`;
 card.appendChild(prof);
 card.appendChild(detail);
+} else if (e.hiredMonth != null && e.hiredMonth >= state.month) {
+prof.textContent = "今月入社したばかりです（収支の実績は来月から出ます）";
+card.appendChild(prof);
 } else {
-prof.textContent = "先週の収支貢献：―（週を進めると実績が出ます）";
+prof.textContent = "先月の収支貢献：―（月を進めると実績が出ます）";
 card.appendChild(prof);
 }
-if (state.mode!== "black" && dangerOf(e) === 2) {
+if (state.mode!== "black" && dangerOf(e) >= 1) {
+const wrap = document.createElement("div");
+wrap.className = "badge-row";
 const b = document.createElement("span");
-b.className = "badge danger";
-b.textContent = "退職圏";
-card.appendChild(b);
-} else if (state.mode!== "black" && dangerOf(e) === 1) {
-const b = document.createElement("span");
-b.className = "badge warn";
-b.textContent = "注意";
-card.appendChild(b);
+b.className = "badge " + (dangerOf(e) === 2 ? "danger" : "warn");
+b.textContent = dangerOf(e) === 2 ? "退職圏" : "注意";
+wrap.appendChild(b);
+const reason = document.createElement("span");
+reason.className = "mood-reason";
+reason.textContent = moodReason(e);
+wrap.appendChild(reason);
+card.appendChild(wrap);
 }
 empList.appendChild(card);
 }
 // 週報のハイライトと前週比（M6）
 const highlights = (state.lastReport || []).filter((l) => /^(⚠|💼|🎉|💸|【融資審査】|【面談】)/.test(l)).slice(0, 2);
 if (state.lastReport && highlights.length) {
-$("report-highlights").innerHTML = "<strong>今週のハイライト</strong>" + highlights.map((l) => `<div>${l}</div>`).join("");
+$("report-highlights").innerHTML = "<strong>今月のハイライト</strong>" + highlights.map((l) => `<div>${l}</div>`).join("");
 $("report-highlights").classList.remove("hidden");
 } else $("report-highlights").classList.add("hidden");
 const ps = state.prevSnapshot;
@@ -271,7 +329,7 @@ dpart("平均信仰", ps.avgFaith, cur.avgFaith, true);
 dpart("平均体力", ps.avgHp, cur.avgHp, true);
 dpart("評判", ps.reputation, cur.reputation, true);
 if (state.mode!== "black") dpart("リスク", ps.risk, cur.risk, false);
-$("report-diff").innerHTML = parts.length ? "前週比：" + parts.join("　") : "";
+$("report-diff").innerHTML = parts.length ? "前月比：" + parts.join("　") : "";
 $("report-diff").classList.toggle("hidden", !parts.length);
 } else $("report-diff").classList.add("hidden");
 if (state.reportText) {
@@ -284,7 +342,7 @@ $("report-raw-wrap").classList.add("hidden");
 }
 const hasReport = !!(state.reportText || state.lastReport);
 $("report-masthead").classList.toggle("hidden", !hasReport);
-if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.week - 1)}号 ― 第${Math.max(1, state.week - 1)}週発行`;
+if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.month - 1)}号 ― 第${Math.max(1, state.month - 1)}月の月報`;
 const honneEl = $("report-honne");
 const honneText = hasReport ? (state.reportHonne || "") : "";
 honneEl.classList.toggle("hidden", !honneText);
@@ -294,45 +352,54 @@ moodEl.classList.toggle("hidden", !hasReport);
 if (hasReport) {
 const moodWord = (e) => {
 if (state.mode === "black") return e.faith >= 55 ? ["意欲的", "ok"] : e.faith >= 40 ? ["普通", ""] : ["意欲低下", "warn"];
-if (e.hp <= 20 || e.faith <= 25) return ["退職圏", "danger"];
-if (e.hp <= 40 || e.faith <= 45) return ["要注意", "warn"];
+if (e.hp <= 20 || e.faith <= 25) return [`退職圏（${e.hp <= 20 ? "体力" : "信仰度"}が危険域）`, "danger"];
+if (e.hp <= 40 || e.faith <= 45) return [`要注意（${e.hp <= 40 && e.hp <= e.faith ? "体力" : "信仰度"}が低め）`, "warn"];
 if (e.faith >= 65 && e.hp >= 60) return ["絶好調", "ok"];
 return ["安定", "ok"];
 };
 moodEl.innerHTML = "<span class=\"mood-label\">社員の様子</span>" + orderedEmps.map((e) => { const [w, z] = moodWord(e); const f = state.mode === "black" ? "" : moodOf(e) + " "; return `<span class="mood-chip ${z}">${f}${e.name} ― ${w}</span>`; }).join("");
 }
 $("btn-advance").disabled = state.status!== "playing";
-$("btn-advance").textContent = state.currentEvent ? "イベントの対応に戻る" : "週を進める";
+$("btn-advance").textContent = state.currentEvent ? "イベントの対応に戻る" : "月を進める";
 $("btn-result").classList.toggle("hidden", state.status === "playing");
-// 融資審査（第4週を過ぎても未実施なら社長室から受けられる）
-$("btn-loan").classList.toggle("hidden", !(state.status === "playing" && !state.loanDone && state.week >= 4));
-// 1on1：週1回まで
-const ivUsed = state.oneOnOneWeek === state.week;
+// 融資審査（第4月を過ぎても未実施なら社長室から受けられる）
+$("btn-loan").classList.toggle("hidden", !(state.status === "playing" && !state.loanDone && state.month >= 4));
+// 1on1：月1回まで
+const ivUsed = state.interviewUsedMonth === state.month;
 $("btn-interview").disabled = state.status !== "playing" || ivUsed || !state.employees.length;
-$("btn-interview").textContent = ivUsed ? "1 on 1（今週は実施済み）" : "1 on 1をする";
+$("btn-interview").textContent = ivUsed ? "1 on 1（今月は実施済み）" : "1 on 1をする";
+// 採用：月1回まで・上限5人（M14）
+const hireUsed = state.hireUsedMonth === state.month;
+const hireFull = state.employees.length >= PARAMS.maxEmployees;
+$("btn-hire").disabled = state.status !== "playing" || hireUsed || hireFull;
+$("btn-hire").textContent = hireFull ? `採用（上限${PARAMS.maxEmployees}人に到達）` : hireUsed ? "採用（今月は実施済み）" : "採用する（今月の候補）";
 $("office-note").textContent =
 state.status!== "playing" ? "" :
 (() => {
+const ds2 = deptSummary(state.employees);
+if (state.employees.length && ds2.direct.length === 0) return "🚨 直接部門に誰もいません。売上が発生しない致命的な状態です。採用するか、社員の部門を変更してください。";
+if (state.employees.length && ds2.indirect.length === 0) return "🚨 間接部門に誰もいません。管理不在で固定費が膨らみ、リスクと評判に傷がつきます。採用するか、社員の部門を変更してください。";
+if ((ds2.direct.length && !ds2.directManager) || (ds2.indirect.length && !ds2.indirectManager)) return "⚠ 責任者がいない部門があります。社員カードの「責任者に任命」から任命してください。";
 const d = orderedEmps.find((e) => dangerOf(e) >= 2);
 if (d) return `${d.name} の様子がおかしいようです。1on1で声をかけてみてはどうでしょう。`;
-if (!state.loanDone && state.week <= 4) return "次の山場は第4週の融資審査です。優遇の目安は資金800万円以上・平均信仰度55以上（平均信仰度は上のダッシュボードで確認できます）。";
+if (!state.loanDone && state.month <= 4) return "次の山場は第4月の融資審査です。優遇の目安は資金3,500万円以上・平均信仰度55以上（平均信仰度は上のダッシュボードで確認できます）。";
 if (!state.loanDone) return "融資審査がまだ終わっていません。「融資審査を受ける」から審査へ進めます。";
-if (ivUsed) return "今週の1on1は済んでいます。";
+if (ivUsed) return "今月の1on1は済んでいます。";
 return "";
 })();
 }
 
 function onAdvance() {
 if (!requireState() || state.status!== "playing") return;
-if (state.currentEvent) { show("event"); return; } // 対応中のイベントがある週は、まず対応に戻る
+if (state.currentEvent) { show("event"); return; } // 対応中のイベントがある月は、まず対応に戻る
 migrateState();
-const processedWeek = state.week;
+const processedMonth = state.month;
 const ctx = {
 effects: aggregateEffects(state.ledger),
 glossary: state.glossary.length,
 };
 state.prevSnapshot = snapshotOf(state);
-const out = simulateWeek(state, ctx);
+const out = simulateMonth(state, ctx);
 state = out.state;
 state.lastReport = out.log;
 state.reportText = null;
@@ -341,14 +408,14 @@ if (state.status!== "playing") {
 show("result");
 return;
 }
-// 第4週は初回融資審査（固定イベント）がランダムイベントに代わる
-if (processedWeek === 4 && !state.loanDone) {
+// 第4月は初回融資審査（固定イベント）がランダムイベントに代わる
+if (processedMonth === 4 && !state.loanDone) {
 show("loan");
 return;
 }
-// 今週のイベント（前週に引いた pending があればそれ、なければ今引く）
+// 今月のイベント（先月に引いた pending があればそれ、なければ今引く）
 let eventId = state.pendingEventId;
-if (!eventId) eventId = drawEventId(state, processedWeek);
+if (!eventId) eventId = drawEventId(state, processedMonth);
 state.pendingEventId = null;
 const ev = getEvent(eventId);
 if (ev) {
@@ -361,13 +428,13 @@ finishWeek();
 }
 }
 
-// 週の締め：次週イベントの抽選と兆し、週報ナレーション（LLM不通時は素材ログのまま）
+// 月の締め：次月イベントの抽選と兆し、月報ナレーション（LLM不通時は素材ログのまま）
 function finishWeek() {
-if (state.status === "playing" && state.week === 4 && !state.loanDone) {
-// 来週（第4週）は融資審査。ランダムイベントは引かず、兆しだけ出す
-state.lastReport = [...(state.lastReport || []), "🔮 来週は初回融資審査があります。資金と社員の状態が問われます。"];
-} else if (state.status === "playing" && state.week <= 5) {
-const nextId = drawEventId(state, state.week);
+if (state.status === "playing" && state.month === 4 && !state.loanDone) {
+// 来月（第4月）は融資審査。ランダムイベントは引かず、兆しだけ出す
+state.lastReport = [...(state.lastReport || []), "🔮 来月は初回融資審査があります。資金と社員の状態が問われます。"];
+} else if (state.status === "playing" && state.month <= 5) {
+const nextId = drawEventId(state, state.month);
 state.pendingEventId = nextId;
 const ev = getEvent(nextId);
 if (ev && ev.omen) {
@@ -376,9 +443,9 @@ state.lastReport = [...(state.lastReport || []), `🔮 兆し：${ev.omen}`];
 }
 saveState(state);
 show("office");
-const weekNo = state.week - 1;
+const monthNo = state.month - 1;
 const logSnapshot = state.lastReport;
-narrateWeek(state, logSnapshot, weekNo).then((res) => {
+narrateMonth(state, logSnapshot, monthNo).then((res) => {
 if (res && res.text && state.lastReport === logSnapshot) {
 state.reportText = res.text;
 state.reportHonne = res.honne || "";
@@ -479,7 +546,7 @@ $("loan-intro").classList.remove("hidden");
 $("loan-result-wrap").classList.add("hidden");
 setLoanStamp(null);
 const avgF = state.employees.length ? Math.round(state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length) : 0;
-$("loan-precheck").innerHTML = `<div class="criteria">${loanCriteriaRows({ funds: Math.round(state.funds), fundsTarget: 800, avgFaith: avgF, faithTarget: 55, faithCounted: state.mode !== "black" })}</div>` +
+$("loan-precheck").innerHTML = `<div class="criteria">${loanCriteriaRows({ funds: Math.round(state.funds), fundsTarget: 3500, avgFaith: avgF, faithTarget: 55, faithCounted: state.mode !== "black" })}</div>` +
 `<p class="note">このほかに、社訓の顔ぶれ（件数・規律強化・売上向上の効果）、社員数、評判、告発リスクも採点されます。</p>`;
 }
 }
@@ -497,20 +564,98 @@ $("loan-result-wrap").classList.remove("hidden");
 setLoanStamp(state.loanResult ? state.loanResult.grade : null);
 }
 
+/* ---------- 部門とポスト（M14） ---------- */
+function changeDept(empId) {
+if (!state) return;
+const e = state.employees.find((x) => x.id === empId);
+if (!e) return;
+e.dept = (e.dept || "direct") === "direct" ? "indirect" : "direct";
+e.role = "member"; // 異動したら責任者からは外れる（空いた部門は任命し直す）
+saveState(state);
+renderOffice();
+}
+function appointManager(empId) {
+if (!state) return;
+const e = state.employees.find((x) => x.id === empId);
+if (!e) return;
+for (const x of state.employees) if ((x.dept || "direct") === (e.dept || "direct")) x.role = "member";
+e.role = "manager";
+saveState(state);
+renderOffice();
+}
+
+/* ---------- 採用画面（M14） ---------- */
+function renderHire() {
+if (!state) return;
+migrateState();
+const list = ensureCandidates(state);
+saveState(state);
+const used = state.hireUsedMonth === state.month;
+const full = state.employees.length >= PARAMS.maxEmployees;
+$("hire-note").textContent = full
+? `創業期は最大${PARAMS.maxEmployees}人までです。`
+: used
+? "今月の採用は実施済みです（月1回まで）。候補は来月入れ替わります。"
+: "候補は毎月入れ替わります。能力と経験は会社の評判に引っ張られます（評判が高いほど良い人材が来ます）。採用は月1人までです。";
+const box = $("hire-list");
+box.innerHTML = "";
+const dots5 = (v) => { const f = Math.min(5, Math.max(0, Math.ceil(v / 2))); return "●".repeat(f) + "○".repeat(5 - f); };
+for (const c of list) {
+const card = document.createElement("div");
+card.className = "card";
+const name = document.createElement("strong");
+name.textContent = c.name + (c.named ? "（顔なじみ）" : "");
+card.appendChild(name);
+const meta = document.createElement("p");
+meta.className = "note emp-sub";
+meta.textContent = `${c.dept === "direct" ? "直接部門" : "間接部門"}／社員として採用／経験区分：${c.expTier}／人件費 月${salaryOf({ ability: c.ability, expTier: c.expTier, hiredMonth: state.month }, state.month)}万円`;
+card.appendChild(meta);
+const traits = document.createElement("div");
+traits.className = "trait-rows";
+for (const [label, v] of [["能力", c.ability], ["野心", c.ambition], ["メンタル", c.mental]]) {
+const row = document.createElement("div");
+row.className = "trait-row";
+row.innerHTML = `<span class="trait-label">${label}</span><span class="dots">${dots5(v)}</span>`;
+traits.appendChild(row);
+}
+card.appendChild(traits);
+if (c.profile) {
+const p = document.createElement("p");
+p.className = "note";
+p.textContent = c.profile;
+card.appendChild(p);
+}
+const btn = document.createElement("button");
+btn.type = "button";
+btn.textContent = used || full ? "今月は採用できません" : "この人を採用する";
+btn.disabled = used || full;
+btn.addEventListener("click", () => onHire(c.id));
+card.appendChild(btn);
+box.appendChild(card);
+}
+}
+function onHire(candId) {
+const r = hireCandidate(state, candId);
+if (!r.hired) { $("hire-note").textContent = r.reason || "採用できませんでした。"; return; }
+state = r.state;
+saveState(state);
+show("office");
+}
+
 /* ---------- 面談 ---------- */
 /* ---------- 1 on 1 ---------- */
 function renderInterview() {
 if (!state) return;
-if (state.oneOnOne && state.oneOnOne.week !== state.week) { state.oneOnOne = null; saveState(state); }
+if (state.oneOnOne && state.oneOnOne.month !== state.month) { state.oneOnOne = null; saveState(state); }
 const session = state.oneOnOne;
-const used = state.oneOnOneWeek === state.week;
+const used = state.interviewUsedMonth === state.month;
 $("iv-picker").classList.toggle("hidden", !!session);
 $("iv-main").classList.toggle("hidden", !session);
 $("btn-iv-back").classList.toggle("hidden", !!session); // M12：戻るボタンは相手選びのときだけ（結果側の「社長室へ」と重複させない）
 if (!session) {
 const picker = $("iv-picker");
 picker.innerHTML = "";
-if (used) { picker.innerHTML = '<p class="note">今週の1on1は実施済みです。</p>'; return; }
+if (used) { picker.innerHTML = '<p class="note">今月の1on1は実施済みです。</p>'; return; }
 for (const e of state.employees) {
 const ch = getCharacter(e.id);
 const btn = document.createElement("button");
@@ -524,7 +669,7 @@ small.textContent = `${ch.profile}（${stateLine}）`;
 btn.appendChild(small);
 const small2 = document.createElement("small");
 const f5 = Math.min(5, Math.max(0, Math.ceil(e.ability / 2)));
-small2.textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／${e.lastProfit != null ? `先週の収支貢献 ${e.lastProfit >= 0 ? "+" : ""}${Math.round(e.lastProfit)}万円` : "先週の収支貢献 ―"}`;
+small2.textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／${e.lastProfit != null ? `先月の収支貢献 ${e.lastProfit >= 0 ? "+" : ""}${Math.round(e.lastProfit)}万円` : "先月の収支貢献 ―"}`;
 btn.appendChild(small2);
 btn.addEventListener("click", () => startOneOnOne(e.id));
 picker.appendChild(btn);
@@ -535,7 +680,7 @@ const emp = state.employees.find((e) => e.id === session.empId);
 $("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
 if (emp) {
 const f5 = Math.min(5, Math.max(0, Math.ceil(emp.ability / 2)));
-$("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先週の収支貢献 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（売上 ${Math.round(emp.lastSales)}＋コストダウン ${Math.round(emp.lastSaving)}−人件費 ${Math.round(emp.lastSalary ?? 0)}−その他 ${Math.round(emp.lastOtherCost ?? 0)}）` : "先週の収支貢献 ―"}`;
+$("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の収支貢献 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（売上 ${Math.round(emp.lastSales)}＋コストダウン ${Math.round(emp.lastSaving)}−人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}−1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}）` : "先月の収支貢献 ―"}`;
 }
 $("iv-turns").textContent = session.done ? "" : `往復 ${session.turns}／${ONE_ON_ONE_MAX_TURNS}`;
 const log = $("iv-log");
@@ -552,12 +697,12 @@ if (session.done) $("iv-result").textContent = (session.resultLines || []).join(
 }
 
 function startOneOnOne(empId) {
-if (!state || state.oneOnOneWeek === state.week) return;
+if (!state || state.interviewUsedMonth === state.month) return;
 const emp = state.employees.find((e) => e.id === empId);
 if (!emp) return;
 const ch = getCharacter(empId);
 state.oneOnOne = {
-week: state.week,
+month: state.month,
 empId,
 turns: 0,
 points: oneOnOneInitialPoints(emp, ch),
@@ -566,7 +711,7 @@ playerTexts: [],
 done: false,
 resultLines: [],
 };
-state.oneOnOneWeek = state.week;
+state.interviewUsedMonth = state.month;
 saveState(state);
 renderInterview();
 }
@@ -651,7 +796,7 @@ s.status === "cleared"? "🎉 創業期クリア":
 s.status === "bankrupt"? "💸 倒産":
 s.status === "empty"? "💸 社員が全員退職": "結果";
 $("result-summary").textContent = [
-`経過：${s.weeks} 週`,
+`経過：${s.months} か月`,
 `資金：${Math.round(s.funds)} 万円`,
 `社員：${s.employees} 人`,
 `平均信仰度：${Math.round(s.avgFaith)}／平均体力：${Math.round(s.avgHp)}`,
@@ -741,18 +886,18 @@ function onRegister() {
 if (!requireState() ||!draft) return;
 let isSwap = false;
 if (activeCount(state) >= MAX_ACTIVE_RULES) {
-if (state.lastSwapWeek === state.week) { $("ed-status").textContent = "今週はすでに社訓を入れ替え済みです。登録は来週にどうぞ。"; return; }
+if (state.lastSwapMonth === state.month) { $("ed-status").textContent = "今月はすでに社訓を入れ替え済みです。登録は来月にどうぞ。"; return; }
 const targetId = $("ed-swap-target").value;
 if (!targetId) { $("ed-status").textContent = "入れ替えで廃止する社訓を選んでください。"; return; }
 abolishRule(state, targetId, "入れ替えで廃止");
 isSwap = true;
-} else if (state.abolishedWeek === state.week) {
-if (state.lastSwapWeek === state.week) { $("ed-status").textContent = "今週はすでに社訓を入れ替え済みです。空き枠への登録も来週にどうぞ。"; return; }
+} else if (state.abolishedMonth === state.month) {
+if (state.lastSwapMonth === state.month) { $("ed-status").textContent = "今月はすでに社訓を入れ替え済みです。空き枠への登録も来月にどうぞ。"; return; }
 isSwap = true;
 }
 const entry = registerRule(state, draft);
 if (isSwap) {
-state.lastSwapWeek = state.week;
+state.lastSwapMonth = state.month;
 for (const e of state.employees) e.faith = Math.max(0, e.faith - 3);
 }
 saveState(state);
@@ -804,7 +949,7 @@ card.appendChild(head);
 const meta = document.createElement("p");
 meta.className = "note";
 meta.textContent =
-`${r.kind}／${r.direction}／対象：${r.target}／第${r.createdWeek}週に登録` +
+`${r.kind}／${r.direction}／対象：${r.target}／第${r.createdMonth ?? r.createdWeek ?? 1}月に登録` +
 (r.metric? `／${r.metric.label} ${r.metric.value}${r.metric.unit}`: "") +
 `／本文 ${r.text.length}字（効果の合計上限 ${r.effectsBudget ?? budgetForLength(r.text.length)}）`;
 card.appendChild(meta);
@@ -824,7 +969,7 @@ btn.textContent = "廃止する（正式な改訂）";
 btn.addEventListener("click", () => {
 if (confirm(`「${r.text}」を廃止しますか？廃止は正式な改訂手続きとして扱われ、ペナルティはありません。`)) {
 abolishRule(state, r.id, "台帳ビューアから廃止");
-state.abolishedWeek = state.week;
+state.abolishedMonth = state.month;
 saveState(state);
 renderLedger();
 }
@@ -862,7 +1007,7 @@ if (!requireState()) return;
 const term = $("gl-term").value.trim();
 const definition = $("gl-def").value.trim();
 if (!term ||!definition) return;
-state.glossary.push({ term, definition, createdWeek: state.week});
+state.glossary.push({ term, definition, createdMonth: state.month});
 saveState(state);
 $("gl-term").value = "";
 $("gl-def").value = "";
@@ -949,6 +1094,8 @@ if (state && state.status!== "playing") show("result");
 else finishWeek();
 });
 $("btn-loan").addEventListener("click", () => show("loan"));
+$("btn-hire").addEventListener("click", () => show("hire"));
+$("btn-hire-back").addEventListener("click", () => show("office"));
 $("btn-loan-back").addEventListener("click", () => show("office"));
 $("btn-ev-back").addEventListener("click", () => show("office"));
 $("btn-loan-apply").addEventListener("click", onLoanApply);

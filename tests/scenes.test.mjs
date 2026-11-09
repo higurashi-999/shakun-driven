@@ -6,11 +6,11 @@ import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js"
 
 function makeState(overrides = {}) {
   return {
-    version: 1, mode: "white", phase: 1, week: 4, funds: 1000,
+    version: 1, mode: "white", phase: 1, month: 4, funds: 4300,
     employees: initialEmployees(), ledger: [], glossary: [],
     risk: 0, reputation: 50, status: "playing",
     seed: 42, rngState: 42, lastReport: null, eventHistory: [],
-    loanDone: false, loanResult: null, interviewUsedWeek: 0, interview: null,
+    loanDone: false, loanResult: null, interviewUsedMonth: 0, interview: null,
     ...overrides,
   };
 }
@@ -68,13 +68,13 @@ function effectsOf(state) {
   addRule(withLedger, { effects: { stamina: 3 } });
   const stay = judgeInterview(withLedger, "emp-1", "来週から休みを増やして、残業も減らします", effectsOf(withLedger));
   assert.equal(stay.outcome, "stay", JSON.stringify(stay.lines));
-  assert.equal(stay.state.employees.length, 5);
+  assert.equal(stay.state.employees.length, 2);
 
   const noLedger = build();
   const quit = judgeInterview(noLedger, "emp-1", "まあ頑張ってください", {});
   assert.equal(quit.outcome, "quit", JSON.stringify(quit.lines));
-  assert.equal(quit.state.employees.length, 4);
-  assert.ok(quit.state.funds < 1000); // 離職コスト
+  assert.equal(quit.state.employees.length, 1);
+  assert.ok(quit.state.funds < 4300); // 離職コスト
 }
 
 // 面談：言行不一致はペナルティになる
@@ -92,7 +92,8 @@ console.log("SCENES TESTS OK");
 // --- M5: 融資審査のモード差（ブラックは資金評価の比重が大きく、数字で通りやすい） ---
 {
   const build = (mode) => {
-    const s = makeState({ mode, funds: 900, risk: 0, reputation: 50 });
+    const s = makeState({ mode, funds: 3600, risk: 0, reputation: 50 });
+    s.employees.forEach((e) => { e.faith = 50; }); // 信仰度の中立化：資金評価の比重だけを比べる
     addRule(s, { effects: { sales: 3 } });
     addRule(s, { effects: { stamina: 3 } });
     return s;
@@ -120,12 +121,12 @@ console.log("SCENES TESTS OK");
 
 // --- M6: ランク付け ---
 {
-  assert.equal(rankOf(2500).rank, "S");
-  assert.equal(rankOf(2500).next, null);
-  assert.equal(rankOf(2100).rank, "A");
-  assert.deepEqual(rankOf(2100).next, { rank: "S", gap: 300 });
-  assert.equal(rankOf(1000).rank, "D");
-  assert.deepEqual(rankOf(1000).next, { rank: "C", gap: 200 });
+  assert.equal(rankOf(10800).rank, "S");
+  assert.equal(rankOf(10800).next, null);
+  assert.equal(rankOf(9100).rank, "A");
+  assert.deepEqual(rankOf(9100).next, { rank: "S", gap: 1300 });
+  assert.equal(rankOf(4300).rank, "D");
+  assert.deepEqual(rankOf(4300).next, { rank: "C", gap: 900 });
 }
 
 // --- M10：1 on 1 ---
@@ -140,7 +141,7 @@ assert.equal(clampPointDelta(-999, getCharacter("emp-5")), -25, "振れ幅でク
 assert.equal(clampPointDelta(999, getCharacter("emp-5")), 10, "プラス側は一律+10まで");
 assert.ok(hasPressure(["もう辞めてもらって構いません"]));
 assert.ok(!hasPressure(["いつもありがとう"]));
-const st1 = { mode: "white", week: 2, funds: 1000, reputation: 50, risk: 0, status: "playing", employees: [{ ...baseEmp }], ledger: [] };
+const st1 = { mode: "white", month: 2, funds: 4300, reputation: 50, risk: 0, status: "playing", employees: [{ ...baseEmp }], ledger: [] };
 const quit = judgeOneOnOne(st1, "emp-3", { points: 0, playerTexts: ["辞めてもらって構いません"] });
 assert.equal(quit.outcome, "pushout");
 assert.equal(quit.state.employees.length, 0, "退職で社員が減る");

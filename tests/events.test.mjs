@@ -5,7 +5,7 @@ import { initialEmployees } from "../js/employees.js";
 
 function makeState(overrides = {}) {
   return {
-    version: 1, mode: "white", phase: 1, week: 1, funds: 1000,
+    version: 1, mode: "white", phase: 1, month: 1, funds: 5000,
     employees: initialEmployees(), ledger: [], glossary: [],
     risk: 0, reputation: 50, status: "playing",
     seed: 777, rngState: 777, lastReport: null, eventHistory: [],
@@ -13,7 +13,7 @@ function makeState(overrides = {}) {
   };
 }
 
-// 抽選は決定的（同じ seed・週・履歴では同じイベント）
+// 抽選は決定的（同じ seed・月・履歴では同じイベント）
 {
   const s = makeState();
   assert.equal(drawEventId(s, 2), drawEventId(s, 2));
@@ -29,7 +29,7 @@ function makeState(overrides = {}) {
   assert.ok(withFx.state.risk < 0 + 0 || withFx.effects.risk < 0);
   const noTags = resolveEvent(makeState(), ev, { type: "respond", text: "" }, {});
   assert.equal(noTags.grade, "失敗");
-  assert.ok(noTags.state.funds < 1000);
+  assert.ok(noTags.state.funds < 5000);
 }
 
 // 社長命令文のキーワードが判定を押し上げる
@@ -46,7 +46,7 @@ function makeState(overrides = {}) {
   const ev = getEvent("ev-late-payment");
   const ignored = resolveEvent(makeState(), ev, { type: "ignore" }, {});
   assert.equal(ignored.grade, "静観");
-  assert.equal(ignored.state.funds, 1000 + Math.round(ev.fail.funds * 0.7));
+  assert.equal(ignored.state.funds, 5000 + Math.round(ev.fail.funds * 0.7));
 }
 
 // 造語が多いとSNSイベントの振れ幅が増幅される
@@ -116,7 +116,7 @@ const judge9 = { relevance: 2, specificity: 1, consistency: 0, rationale: "x", s
 const before9 = initialEmployees();
 const r9 = resolveEvent(makeState(), ev9, { type: "respond", text: "復旧手順を実施" }, {}, 0, judge9);
 assert.ok(r9.lines.some((l) => l.includes("社長命令の余波")), "余波の行が出る");
-assert.equal(r9.state.funds, Math.round((1000 + (r9.effects.funds || 0) - 20) * 10) / 10, "資金の余波が適用される");
+assert.equal(r9.state.funds, Math.round((5000 + (r9.effects.funds || 0) - 20) * 10) / 10, "資金の余波が適用される");
 r9.state.employees.forEach((e, i) => {
   const want = Math.min(100, Math.max(0, before9[i].faith + (r9.effects.faithAll || 0) + 5));
   assert.equal(e.faith, want, "信仰の余波が全員に適用される");

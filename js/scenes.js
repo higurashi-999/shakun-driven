@@ -1,6 +1,6 @@
 // シーン判定：融資審査と面談（退職相談）。どちらも数値判定はコード、文章だけをLLMに任せる。
 // このモジュールは import を持たない（node の単体テストで直接読み込むため）。
-export const TURNOVER_COST = 234; // 離職コスト（万円）＝年収の50%（sim.js の PARAMS と一致）
+export const TURNOVER_COST = 1000; // 離職コスト（万円、sim.js の PARAMS と一致）
 
 /* ================= 融資審査（第4週の固定イベント） ================= */
 // 社訓の顔ぶれと初期実績から、合否・金額・金利と理由を決める（M13：効果5項目で判定）。
@@ -23,22 +23,27 @@ const fx = effects || {};
 if ((fx.discipline || 0) >= 2) add("規律強化の社訓が効いており、数字の管理が期待できる", 8);
 if ((fx.sales || 0) >= 2) add("売上向上の社訓があり、成長が見込める", 5);
 const fundsPts = state.mode === "black" ? [15, 8, -15] : [10, 5, -10];
-if (state.funds >= 800) add(`資金 ${Math.round(state.funds)} 万円と余裕がある`, fundsPts[0]);
-else if (state.funds >= 500) add(`資金 ${Math.round(state.funds)} 万円を維持している`, fundsPts[1]);
-else if (state.funds < 300) add(`資金が ${Math.round(state.funds)} 万円まで減っており、資金繰りが厳しい`, fundsPts[2]);
+if (state.funds >= 3500) add(`資金 ${Math.round(state.funds)} 万円と余裕がある`, fundsPts[0]);
+else if (state.funds >= 2150) add(`資金 ${Math.round(state.funds)} 万円を維持している`, fundsPts[1]);
+else if (state.funds < 1300) add(`資金が ${Math.round(state.funds)} 万円まで減っており、資金繰りが厳しい`, fundsPts[2]);
 if (state.mode !== "black") {
 if (avgFaith >= 55) add("社員の信仰度（結束）が高く、定着が見込める", 8);
 else if (avgFaith < 45 && state.employees.length) add("社員の信仰度が低く、離職が懸念される", -8);
 }
-if (state.employees.length >= 6) add(`社員 ${state.employees.length} 人へ成長している`, 5);
+if (state.employees.length >= 3) add(`社員 ${state.employees.length} 人と、創業期の適正人数に達している`, 5);
+{
+const hasDirect = state.employees.some((e) => (e.dept || "direct") === "direct");
+const hasIndirect = state.employees.some((e) => (e.dept || "direct") === "indirect");
+if (state.employees.length && (!hasDirect || !hasIndirect)) add("部門に欠員があり、事業の継続性に懸念がある", -10);
+}
 if (state.reputation >= 55) add("対外的な評判が良い", 5);
 else if (state.reputation < 40) add("対外的な評判が低い", -5);
 if (state.risk >= 35) add("告発リスクの蓄積が大きく、コンプライアンスに懸念がある", -20);
 else if (state.risk >= 20) add("告発リスクの蓄積が見える", -10);
 
 let grade, amount, rate;
-if (score >= 60) { grade = "合格（優遇条件）"; amount = 500; rate = 1.5;}
-else if (score >= 40) { grade = "合格（通常条件）"; amount = 350; rate = 2.5;}
+if (score >= 60) { grade = "合格（優遇条件）"; amount = 2150; rate = 1.5;}
+else if (score >= 40) { grade = "合格（通常条件）"; amount = 1500; rate = 2.5;}
 else { grade = "不合格"; amount = 0; rate = null;}
 
 const next = structuredClone(state);
@@ -55,7 +60,7 @@ next.loanDone = true;
 next.loanResult = {
   score, grade, amount, rate, week: state.week,
   factors,
-  criteria: { funds: Math.round(state.funds), fundsTarget: 800, avgFaith: Math.round(avgFaith), faithTarget: 55, faithCounted: state.mode !== "black" },
+  criteria: { funds: Math.round(state.funds), fundsTarget: 3500, avgFaith: Math.round(avgFaith), faithTarget: 55, faithCounted: state.mode !== "black" },
 };
 return { state: next, lines, result: next.loanResult};
 }
@@ -158,7 +163,7 @@ lines.push(`判定：様子見です（スコア ${score}）。結論は出ま�
 } else {
 next.employees = next.employees.filter((e) => e.id!== empId);
 next.funds = Math.round((next.funds - TURNOVER_COST) * 10) / 10;
-lines.push(`判定：退職が決まりました（スコア ${score}）。離職コスト ${TURNOVER_COST} 万円（年収の50%相当）が発生しました。`);
+lines.push(`判定：退職が決まりました（スコア ${score}）。離職コスト ${TURNOVER_COST} 万円が発生しました。`);
 if (next.employees.length === 0) {
 next.status = "empty";
 lines.push("💸 社員が全員いなくなりました。会社は成り立ちません。");
@@ -198,14 +203,14 @@ export function evaluateRun(state) {
 const n = state.employees.length;
 const avgFaith = n ? state.employees.reduce((s2, e) => s2 + e.faith, 0) / n : 0;
 const avgHp = n ? state.employees.reduce((s2, e) => s2 + e.hp, 0) / n : 0;
-const value = Math.round(state.funds + n * 100 + state.reputation * 5);
+const value = Math.round(state.funds + n * 430 + state.reputation * 22);
 const health = Math.round(((avgFaith + avgHp + (100 - state.risk)) / 3) * 10) / 10;
 const score = state.mode === "black" ? value : Math.round(value * (0.7 + 0.3 * (health / 100)));
 return { value, health, score };
 }
 
 // 結果ランク（試作スケールの暫定しきい値）
-export const RANK_THRESHOLDS = [["S", 2400], ["A", 2000], ["B", 1600], ["C", 1200]];
+export const RANK_THRESHOLDS = [["S", 10400], ["A", 8700], ["B", 6900], ["C", 5200]];
 export function rankOf(score) {
 for (let i = 0; i < RANK_THRESHOLDS.length; i++) {
 const [rank, min] = RANK_THRESHOLDS[i];
@@ -214,7 +219,7 @@ const next = i > 0 ? { rank: RANK_THRESHOLDS[i - 1][0], gap: RANK_THRESHOLDS[i -
 return { rank, next };
 }
 }
-return { rank: "D", next: { rank: "C", gap: 1200 - score } };
+return { rank: "D", next: { rank: "C", gap: 5200 - score } };
 }
 
 /* ================= 1 on 1（M10：面談を一本化） ================= */
@@ -253,7 +258,7 @@ export function judgeOneOnOne(state, empId, session) {
   if (session.points <= 0) {
     const pressured = hasPressure(session.playerTexts);
     outcome = pressured ? "pushout" : "burnout-quit";
-    const cost = pressured ? 20 : 10;
+    const cost = pressured ? 85 : 45;
     next.employees = next.employees.filter((e) => e.id !== empId);
     next.funds = Math.round((next.funds - cost) * 10) / 10;
     next.reputation = clamp(next.reputation - (pressured ? 8 : 3), 0, 100);
@@ -293,7 +298,7 @@ export function buildOneOnOnePrompt(state, emp, character, history, playerText, 
     `【あなた】${emp.name}。${character.profile || ""}`,
     `【本音と地雷（社長には見えていない設定。演技の指針にだけ使う）】${character.hidden || ""}`,
     `【今の状態】体力${Math.round(emp.hp)}・信仰度${Math.round(emp.faith)}（各0〜100）`,
-    emp.lastProfit != null ? `【先週の収支貢献】売上${Math.round(emp.lastSales)}万円＋コストダウン${Math.round(emp.lastSaving)}万円−コスト${Math.round(emp.lastCost)}万円＝${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円` : "",
+    emp.lastProfit != null ? `【先月の収支貢献】売上${Math.round(emp.lastSales)}万円＋コストダウン${Math.round(emp.lastSaving)}万円−コスト${Math.round(emp.lastCost)}万円＝${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円` : "",
     recentLines.length ? `【会社の直近の出来事】\n${recentLines.slice(-3).join("\n")}` : "",
     "【現在の社訓】",
     rules,

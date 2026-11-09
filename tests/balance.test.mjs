@@ -1,18 +1,18 @@
 // 創業期バランス検証：労働強化型は資金で先行するが体力が危険域に入り、
 // 福利厚生型は信仰度で勝る、という SPEC の反転カーブの創業期側を確認する。
 import assert from "node:assert/strict";
-import { simulateWeek } from "../js/sim.js";
+import { simulateMonth } from "../js/sim.js";
 import { initialEmployees } from "../js/employees.js";
 import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js";
 
 function baseState(seed) {
   return {
-    version: 1, mode: "white", phase: 1, week: 1, funds: 1000,
+    version: 1, mode: "white", phase: 1, month: 1, funds: 4300,
     employees: initialEmployees(), ledger: [], glossary: [],
     risk: 0, reputation: 55, status: "playing",
     seed, rngState: seed, lastReport: null, pendingEventId: null, currentEvent: null,
     eventHistory: [], reportText: null, loanDone: false, loanResult: null,
-    interviewUsedWeek: 0, interview: null,
+    interviewUsedMonth: 0, interview: null,
   };
 }
 const LONG = "あ".repeat(55);
@@ -36,7 +36,7 @@ function run(strategy, seed) {
   }
   let cur = s;
   for (let w = 0; w < 6 && cur.status === "playing"; w++) {
-    cur = simulateWeek(cur, { effects: aggregateEffects(cur.ledger), glossary: 0 }).state;
+    cur = simulateMonth(cur, { effects: aggregateEffects(cur.ledger), glossary: 0 }).state;
   }
   return cur;
 }
@@ -62,10 +62,10 @@ const laborHp = average("labor", "hp");
 const welfareHp = average("welfare", "hp");
 console.log(`labor funds ${Math.round(laborFunds)} / none ${Math.round(noneFunds)} / faith welfare ${Math.round(welfareFaith)} vs labor ${Math.round(laborFaith)} / hp labor ${Math.round(laborHp)} vs welfare ${Math.round(welfareHp)}`);
 
-assert.ok(laborFunds > noneFunds + 30, "創業期は売上偏重型が資金で先行する");
+assert.ok(laborFunds > noneFunds + 100, "創業期は売上偏重型が資金で先行する");
 assert.ok(welfareFaith > laborFaith + 10, "体力・信仰重視型は信仰度で大きく勝る");
 assert.ok(welfareHp > laborHp + 15, "売上偏重型は体力が大きく削れる");
-assert.ok(average("labor", "alive") >= 0.9, "売上偏重型でも6週での倒産は例外的");
+assert.ok(average("labor", "alive") >= 0.9, "売上偏重型でも6か月での倒産は例外的");
 assert.ok(average("welfare", "alive") >= 0.9);
 assert.ok(average("none", "alive") >= 0.9);
 

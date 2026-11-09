@@ -1,12 +1,18 @@
-// 社員データ：初期社員5人（完全オリジナル、属性は固定）。
+// 社員データ：初期メンバー2人＋固有の採用候補3人（完全オリジナル、属性は固定）。
 // 個性は 能力／野心／メンタル（各1〜10、画面表示あり）と、体の強さ stamina（裏側のパラメータ、体力ゲージの減り方に効く）。
 // 状態は 体力 hp（ゲージ式：仕事で減り休むと回復）／信仰度 faith の2軸（各0〜100）。旧・疲労は 100-hp、不満は信仰度へ吸収（M11）。
+// M14：初期メンバーは2人（直接部門の責任者＋間接部門の責任者）。残りの3人は採用候補として登場する。
+// 部門 dept: "direct"（売上を作る）／"indirect"（会社を回す）。ポスト role: "manager"（責任者）／"member"（社員）。
 export const INITIAL_EMPLOYEES = [
-  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, expTier: "ベテラン", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-2", name: "砂川 蓮", ability: 6, stamina: 9, ambition: 4, mental: 8, hp: 90, faith: 50, expTier: "中堅", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-3", name: "桐生 葵", ability: 9, stamina: 4, ambition: 9, mental: 5, hp: 80, faith: 45, expTier: "新人", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, expTier: "ベテラン", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-5", name: "八雲 奏", ability: 7, stamina: 6, ambition: 7, mental: 4, hp: 85, faith: 50, expTier: "中堅", hiredWeek: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, dept: "direct", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, dept: "indirect", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+];
+
+// 固有の採用候補（M14）：初期メンバー以外の3人は、候補として優先的に登場する
+export const CANDIDATE_CHARACTERS = [
+  { id: "emp-2", name: "砂川 蓮", ability: 6, stamina: 9, ambition: 4, mental: 8, dept: "direct", expTier: "中堅" },
+  { id: "emp-3", name: "桐生 葵", ability: 9, stamina: 4, ambition: 9, mental: 5, dept: "direct", expTier: "新人" },
+  { id: "emp-5", name: "八雲 奏", ability: 7, stamina: 6, ambition: 7, mental: 4, dept: "indirect", expTier: "中堅" },
 ];
 
 export function initialEmployees() {

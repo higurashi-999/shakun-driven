@@ -317,3 +317,12 @@ body[data-mode="black"] .dash-funds strong, body[data-mode="black"] .dash-stat s
 .fx-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
 .fx-chip.pos { color: var(--good); border-color: var(--good); background: #f2f8f0; }
 .fx-chip.neg { color: var(--bad); border-color: var(--bad); background: #fdf3f1; }
+
+/* M14：注意色の定義（未定義でセグメントが見えなくなっていた不具合の修正）と部門・採用まわり */
+:root { --warn: #d97706; }
+.segs .seg.on.warn { background: var(--warn); }
+.emp-ops { display: flex; gap: 6px; margin: 6px 0 2px; flex-wrap: wrap; }
+.mini-btn { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.mini-btn:active { background: var(--highlight-bg); }
+.badge-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.mood-reason { font-size: 12px; color: var(--sub); }

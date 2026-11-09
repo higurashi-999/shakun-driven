@@ -1,6 +1,6 @@
-// 週報ナレーション：シムの素材ログを文章化する（LLM）。不通・失敗時は呼び出し側が素材ログ表示に落とす。
+// 月報ナレーション：シムの素材ログを文章化する（LLM）。不通・失敗時は呼び出し側が素材ログ表示に落とす。
 // 数値判定には関与しない。素材に無い出来事を作らないよう強く制約する。
-import { callLLM } from "./llm.js?v=20261102.23";
+import { callLLM } from "./llm.js?v=20261102.24";
 
 // 本音を言う社員をコード側で決める：状態が一番際立っている人
 export function pickCommentator(employees) {
@@ -10,21 +10,21 @@ export function pickCommentator(employees) {
   )[0];
 }
 
-export function buildNarrationPrompt(state, logLines, weekNo) {
+export function buildNarrationPrompt(state, logLines, monthNo) {
   const glossary = (state.glossary || []).map((g) => `「${g.term}」（${g.definition}）`).join("、");
   return [
-    "あなたは会社経営ゲームの週報ライターです。今週の素材ログをもとに、社長へ届ける週報（社内報）を書いてください。",
+    "あなたは会社経営ゲームの月報ライターです。今月の素材ログをもとに、社長へ届ける月報（社内報）を書いてください。",
     "厳守事項：",
     "- 素材ログにある数値・固有名詞・出来事は改変しない。素材に無い出来事、人物、数字は作らない",
     "- 形式：次の4つの見出しをこの順番・この表記のままで必ず使う。各見出しの本文は指定の文数まで。全体で300字前後（250〜330字）に収める",
-    "【見出し】今週を一言で表す見出し（15字以内、本文なし）",
-    "【今週の数字】売上・費用・収支・資金などの要点を2文以内",
-    "【出来事】今週の主な出来事（収支貢献のトップとワースト、体調の変化、入退社など）を2文以内",
-    "【来週】来週の見通しや兆しを1文",
+    "【見出し】今月を一言で表す見出し（15字以内、本文なし）",
+    "【今月の数字】売上・費用・収支・資金などの要点を2文以内",
+    "【出来事】今月の主な出来事（収支貢献のトップとワースト、体調の変化、入退社など）を2文以内",
+    "【来月】来月の見通しや兆しを1文",
     "- 口調：前向きで簡潔。少しだけユーモアを入れてよい",
     glossary ? `- 社内用語（造語）があれば、そのうち1つを自然に使う：${glossary}` : "",
     "",
-    `モード：${state.mode === "black" ? "ブラック" : "ホワイト"}／第${weekNo}週の週報`,
+    `モード：${state.mode === "black" ? "ブラック" : "ホワイト"}／第${monthNo}月の月報`,
     (() => {
       const c = pickCommentator(state.employees);
       if (!c) return "";
@@ -33,7 +33,7 @@ export function buildNarrationPrompt(state, logLines, weekNo) {
     "素材ログ：",
     ...logLines.map((l) => `- ${l}`),
     "",
-    "週報：",
+    "月報：",
   ]
     .filter(Boolean)
     .join("\n");
@@ -50,8 +50,8 @@ export function splitHonne(raw) {
   return { text: raw.slice(0, idx).trim(), honne: raw.slice(idx + "【本音】".length).trim() };
 }
 
-export async function narrateWeek(state, logLines, weekNo) {
-  const prompt = buildNarrationPrompt(state, logLines, weekNo);
+export async function narrateMonth(state, logLines, monthNo) {
+  const prompt = buildNarrationPrompt(state, logLines, monthNo);
   let out = splitHonne(String(await callLLM("main", prompt, { temperature: 0.7, maxOutputTokens: 900 })));
   if (!looksComplete(out.text)) {
     // 切断時は短く完結させる指示でもう一度だけ試す

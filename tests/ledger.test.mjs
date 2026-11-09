@@ -11,7 +11,7 @@ import {
 } from "../js/ledger.js";
 
 function state() {
-  return { week: 1, ledger: [], glossary: [] };
+  return { month: 1, ledger: [], glossary: [] };
 }
 const LONG = "あ".repeat(55); // 55字＝効果の合計上限6
 function rec(overrides = {}) {
