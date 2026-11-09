@@ -1,8 +1,8 @@
 // 採用（M14）：月1回、候補3人から1人までを社長が選んで採用する（自動採用は廃止）。
 // 候補の顔ぶれは seed と月から決定的に作る（画面を開き直しても変わらない）。
 // 候補の能力と経験区分は評判に引っ張られる：評判が高い会社ほど、良い人材が応募してくる。
-import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.25";
-import { PARAMS } from "./sim.js?v=20261102.25";
+import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.26";
+import { PARAMS } from "./sim.js?v=20261102.26";
 
 export const HIRE_NAME_POOL = [
   "冬木 玲", "夏目 湊", "秋山 栞", "春日 陽", "星野 律",
@@ -60,7 +60,7 @@ export function ensureCandidates(state) {
       stamina: 4 + Math.floor(rng() * 6),
       ambition: 3 + Math.floor(rng() * 7),
       mental: 4 + Math.floor(rng() * 6),
-      dept: rng() < 0.5 ? "direct" : "indirect",
+      dept: rng() < 0.65 ? "direct" : "indirect", // 人数比のデフォルトは直接部門が多め（M15）
       expTier: rollTier(rng, rep),
       named: false,
       profile: "",
@@ -92,7 +92,7 @@ export function hireCandidate(state, candId) {
     role: "member",
     expTier: cand.expTier,
     hiredMonth: month,
-    lastSales: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null,
+    lastSales: null, lastBoost: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null,
   };
   next.employees.push(hire);
   next.hireUsedMonth = month;

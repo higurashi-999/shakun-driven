@@ -1,6 +1,6 @@
 // 月報ナレーション：シムの素材ログを文章化する（LLM）。不通・失敗時は呼び出し側が素材ログ表示に落とす。
 // 数値判定には関与しない。素材に無い出来事を作らないよう強く制約する。
-import { callLLM } from "./llm.js?v=20261102.25";
+import { callLLM } from "./llm.js?v=20261102.26";
 
 // 本音を言う社員をコード側で決める：状態が一番際立っている人
 export function pickCommentator(employees) {

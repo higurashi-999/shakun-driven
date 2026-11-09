@@ -88,6 +88,12 @@ export function simulateMonth(state, ctx) {
   else deptSalesFactor = 0.85;
   const indirectSavingRaw = dept.indirect.reduce((s2, e) => s2 + e.ability * 2.0, 0);
   const fixedEffective = dept.indirect.length === 0 ? PARAMS.fixedCost * 1.2 : PARAMS.fixedCost;
+  // 間接部門の押し上げ（M15）：能力1あたり+2.5%、責任者がいれば×1.2／不在なら×0.6、上限+40%。
+  // 間接の責任者（能力5）1人で+15%前後になる水準。間接が空の月は、直接の売上に−15%のペナルティ。
+  let supportRate = dept.indirect.reduce((s2, e) => s2 + e.ability * 0.025, 0);
+  if (dept.indirect.length) supportRate *= dept.indirectManager ? 1.2 : 0.6;
+  supportRate = Math.min(0.4, supportRate);
+  const indirectAbilitySum = dept.indirect.reduce((s2, e) => s2 + e.ability, 0) || 1;
 
   /* 売上と費用（社員ごとに収支を出す：売上＋コストダウン−人件費−1人あたり固定費＝その人の月収支） */
   let companyFactor = 1;
@@ -110,22 +116,38 @@ export function simulateMonth(state, ctx) {
   const weightSum = emps.reduce((s2, e) => s2 + weightOf(e), 0) || 1;
   let sales = 0;
   let cost = 0;
+  let upliftTotal = 0;
   for (const e of emps) {
     const faithF = 1 + (e.faith - 50) * PARAMS.faithSalesSlope;
     const hpF = e.hp <= 10 ? 0.55 : e.hp <= 20 ? 0.75 : 1;
     const isDirect = (e.dept || "direct") === "direct";
-    const salesI = isDirect ? e.ability * PARAMS.salesPerAbility * companyFactor * faithF * hpF * noise * challengeMult * deptSalesFactor : 0;
+    const baseSalesI = isDirect ? e.ability * PARAMS.salesPerAbility * companyFactor * faithF * hpF * noise * challengeMult * deptSalesFactor : 0;
+    // 押し上げは直接の売上に織り込む（間接が空なら−15%）
+    const salesI = isDirect ? baseSalesI * (dept.indirect.length ? 1 + supportRate : 0.85) : 0;
+    const upliftI = isDirect ? baseSalesI * supportRate : 0;
     const savingI = savingTotal * (weightOf(e) / weightSum);
     const salaryI = salaryOf(e, month);
     const costI = salaryI + fixedEffective / headCount + extrasTotal / headCount;
     e.lastSales = round1(salesI);
-    e.lastSaving = round1(savingI);
+    e.lastBoost = round1(upliftI); // 直接のみ：売上のうち間接の押し上げ分（併記用）
+    e.lastUplift = 0; // 間接のみ：自分が押し上げた売上分（このあと配分する）
+    e.lastSaving = isDirect ? 0 : round1(savingI); // M15：コストダウンの帰属は間接部門だけに付ける
     e.lastCost = round1(costI);
     e.lastSalary = salaryI; // 人件費の内訳表示用
     e.lastOtherCost = round1(costI - salaryI); // 1人あたり固定費（固定費＋追加費用の按分）
-    e.lastProfit = round1(salesI + savingI - costI);
+    e.lastProfit = round1(salesI + savingI - costI); // 間接は次のパスで付け替える
+    upliftTotal += upliftI;
     sales += salesI;
     cost += costI - savingI;
+  }
+  // 間接部門の収支：売上を「直接部門貢献（押し上げ分）＋コストダウン」に置き換える（M15）
+  for (const e of emps) {
+    if ((e.dept || "direct") === "indirect") {
+      e.lastUplift = round1(upliftTotal * (e.ability / indirectAbilitySum));
+      e.lastProfit = round1(e.lastUplift + e.lastSaving - e.lastCost);
+    } else {
+      e.lastProfit = round1(e.lastSales - e.lastCost);
+    }
   }
   sales = round1(sales);
   cost = round1(cost);
@@ -133,8 +155,9 @@ export function simulateMonth(state, ctx) {
   next.funds = round1(next.funds + profit);
   next.lastProfit = profit; // 資金の持ち表示用（判定には使わない）
   log.push(`売上 ${Math.round(sales)}万円／費用 ${Math.round(cost)}万円／収支 ${profit >= 0 ? "+" : ""}${Math.round(profit)}万円（資金 ${Math.round(next.funds)}万円）`);
+  if (upliftTotal > 0) log.push(`🤝 間接部門のサポートで、売上が +${Math.round(upliftTotal)}万円押し上げられました（押し上げ率 +${Math.round(supportRate * 100)}%）。`);
   if (dept.direct.length === 0) log.push("🚨 直接部門に誰もいません。売上が発生しない、経営として致命的な状態です。至急、直接部門の人材を雇ってください。");
-  if (dept.indirect.length === 0) log.push("🚨 間接部門に誰もいません。管理不在で固定費が膨らみ、リスクと評判に傷がつきました。至急、間接部門の人材を雇ってください。");
+  if (dept.indirect.length === 0) log.push("🚨 間接部門に誰もいません。直接部門の売上が伸び悩み（−15%）、管理不在で固定費が膨らみ、リスクと評判にも傷がつきました。至急、間接部門の人材を雇ってください。");
   if (dept.direct.length > 0 && !dept.directManager) log.push("⚠ 直接部門に責任者がいません。売上が伸び悩みます。社員を責任者に任命してください。");
   if (dept.indirect.length > 0 && !dept.indirectManager) log.push("⚠ 間接部門に責任者がいません。管理の効きが弱まります。社員を責任者に任命してください。");
   if (emps.length >= 2) {

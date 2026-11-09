@@ -161,3 +161,26 @@ function addRule(state, overrides) {
 }
 
 console.log("SIM TESTS OK");
+
+/* ---------- M15：間接部門の押し上げと貢献の付け替え ---------- */
+{
+  // 間接あり（初期状態）では押し上げが発生し、間接の収支は押し上げ分＋コストダウンで付く
+  const withInd = simulateMonth(makeState({ seed: 555, rngState: 555 }), { effects: {}, glossary: 0 }).state;
+  const morinaga = withInd.employees.find((e) => e.id === "emp-4");
+  const takamine = withInd.employees.find((e) => e.id === "emp-1");
+  assert.ok(morinaga.lastUplift > 0, `間接の直接部門貢献が付くはず: ${morinaga.lastUplift}`);
+  assert.ok(takamine.lastBoost > 0, "直接の売上に押し上げ分が併記できるはず");
+  assert.equal(takamine.lastSaving, 0, "直接にはコストダウンを付けない");
+  assert.equal(morinaga.lastProfit, Math.round((morinaga.lastUplift + morinaga.lastSaving - morinaga.lastCost) * 10) / 10);
+  // 直接が3人いる状態で間接を抜くと、押し上げが消えて−15%ペナルティ＋固定費増で資金が悪化する
+  const mkEmp = (id, name, ability, dept) => ({ id, name, ability, stamina: 6, ambition: 5, mental: 6, hp: 90, faith: 55, dept, role: "member", expTier: "中堅", hiredMonth: 1, lastSales: null, lastBoost: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null });
+  const bigState = makeState({ seed: 555, rngState: 555 });
+  bigState.employees.push(mkEmp("emp-3", "桐生 葵", 9, "direct"), mkEmp("emp-2", "砂川 蓮", 6, "direct"));
+  const bigWith = simulateMonth(bigState, { effects: {}, glossary: 0 }).state;
+  const bigNoState = makeState({ seed: 555, rngState: 555 });
+  bigNoState.employees.push(mkEmp("emp-3", "桐生 葵", 9, "direct"), mkEmp("emp-2", "砂川 蓮", 6, "direct"));
+  bigNoState.employees = bigNoState.employees.filter((e) => e.dept === "direct");
+  const noInd = simulateMonth(bigNoState, { effects: {}, glossary: 0 });
+  assert.ok(noInd.log.some((l) => l.includes("直接部門の売上が伸び悩み")), "間接空席の売上ペナルティが月報素材に出ること");
+  assert.ok(bigWith.funds > noInd.state.funds + 20, `直接が多いほど間接の押し上げが効くはず: ${bigWith.funds} vs ${noInd.state.funds}`);
+}

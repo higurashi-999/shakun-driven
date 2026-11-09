@@ -80,3 +80,16 @@ function makeState(overrides = {}) {
 }
 
 console.log("HIRING TESTS OK");
+
+// M15：プール候補の部門比は直接寄り（65%）になる
+{
+  const seniors = [
+    { id: "emp-2", name: "砂川 蓮" }, { id: "emp-3", name: "桐生 葵" }, { id: "emp-5", name: "八雲 奏" },
+  ];
+  let direct = 0, total = 0;
+  for (let m = 1; m <= 12; m++) {
+    const s = makeState({ month: m, seed: 900 + m, employees: [...seniors] });
+    for (const c of ensureCandidates(s)) { total++; if (c.dept === "direct") direct++; }
+  }
+  assert.ok(direct / total > 0.5, `プール候補は直接寄りのはず: ${direct}/${total}`);
+}
