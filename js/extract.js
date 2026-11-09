@@ -1,7 +1,7 @@
 // 社訓の構造化：自由文→台帳レコード（JSON）。プロンプト生成・応答パース・スキーマ検証・1回再試行。
 // 検証は ledger.js の validateRecord に委ね、崩れた応答はエラー内容を添えて再試行する。
-import { callLLM } from "./llm.js?v=20261102.24";
-import { validateRecord, EFFECT_AXES, KINDS, DIRECTIONS, budgetForLength } from "./ledger.js?v=20261102.24";
+import { callLLM } from "./llm.js?v=20261102.25";
+import { validateRecord, EFFECT_AXES, KINDS, DIRECTIONS, budgetForLength } from "./ledger.js?v=20261102.25";
 
 export function buildExtractionPrompt(text) {
   const budget = budgetForLength(text.length);

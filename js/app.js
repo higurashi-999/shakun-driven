@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.24";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.24";
+} from "./store.js?v=20261102.25";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.25";
 import {
 registerRule,
 abolishRule,
@@ -20,16 +20,16 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.24";
-import { extractRule} from "./extract.js?v=20261102.24";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.24";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary } from "./sim.js?v=20261102.24";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.24";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.24";
-import { narrateMonth } from "./report.js?v=20261102.24";
+} from "./ledger.js?v=20261102.25";
+import { extractRule} from "./extract.js?v=20261102.25";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.25";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary } from "./sim.js?v=20261102.25";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.25";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.25";
+import { narrateMonth } from "./report.js?v=20261102.25";
 
-import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.24";
-import { TITLE_ART } from "./assets.js?v=20261102.24";
+import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.25";
+import { TITLE_ART } from "./assets.js?v=20261102.25";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire"];
 let state = loadState();

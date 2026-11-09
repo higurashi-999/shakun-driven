@@ -1,8 +1,8 @@
 // 採用（M14）：月1回、候補3人から1人までを社長が選んで採用する（自動採用は廃止）。
 // 候補の顔ぶれは seed と月から決定的に作る（画面を開き直しても変わらない）。
 // 候補の能力と経験区分は評判に引っ張られる：評判が高い会社ほど、良い人材が応募してくる。
-import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.24";
-import { PARAMS } from "./sim.js?v=20261102.24";
+import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.25";
+import { PARAMS } from "./sim.js?v=20261102.25";
 
 export const HIRE_NAME_POOL = [
   "冬木 玲", "夏目 湊", "秋山 栞", "春日 陽", "星野 律",
