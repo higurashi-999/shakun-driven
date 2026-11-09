@@ -325,3 +325,41 @@ export function parseOneOnOneReply(raw) {
 }
 
 export const ONE_ON_ONE_FALLBACKS = ["……はい、分かりました。", "そうですね…。", "ありがとうございます。少し考えさせてください。", "正直、まだ整理がついていなくて。", "……ええ。"];
+
+// 上場審査（M16）：成熟期の売上目標達成後、株主総会を経て受ける最終判定。融資審査と同じ要因表示つき。
+export function judgeListing(state) {
+const factors = [];
+let score = 50;
+const add = (label, points) => { factors.push({ label, points }); score += points; };
+const n = state.employees.length;
+const avgFaith = n ? state.employees.reduce((s2, e) => s2 + e.faith, 0) / n : 0;
+if (state.funds >= 8000) add(`資金 ${Math.round(state.funds)} 万円と、財務の厚みがある`, 15);
+else if (state.funds >= 5000) add(`資金 ${Math.round(state.funds)} 万円を確保している`, 8);
+else if (state.funds < 2500) add(`資金が ${Math.round(state.funds)} 万円と薄く、財務に不安がある`, -15);
+if (n >= 16) add(`社員 ${n} 人と、組織の規模が上場水準に達している`, 10);
+else if (n >= 12) add(`社員 ${n} 人と、組織の規模が育っている`, 5);
+else add(`社員 ${n} 人と、組織の規模がまだ小さい`, -10);
+if (state.reputation >= 70) add("対外的な評判が非常に良い", 10);
+else if (state.reputation >= 55) add("対外的な評判が良い", 5);
+else if (state.reputation < 40) add("対外的な評判が低い", -10);
+if (state.mode !== "black") {
+if (avgFaith >= 60) add("社員の信仰度（結束）が高く、組織が安定している", 10);
+else if (avgFaith < 45 && n) add("社員の信仰度が低く、組織の安定性に懸念がある", -10);
+}
+if (state.risk >= 35) add("告発リスクの蓄積が大きく、コンプライアンスに重大な懸念がある", -20);
+else if (state.risk >= 20) add("告発リスクの蓄積が見える", -10);
+else if (state.risk < 10) add("コンプライアンスが清潔に保たれている", 5);
+{
+const hasDirect = state.employees.some((e) => (e.dept || "direct") === "direct");
+const hasIndirect = state.employees.some((e) => (e.dept || "direct") === "indirect");
+const hasMgr = state.employees.some((e) => e.role === "manager");
+if (n && (!hasDirect || !hasIndirect)) add("部門に欠員があり、事業の継続性に懸念がある", -15);
+else if (hasMgr) add("部門と責任者の体制が整っている", 5);
+}
+if ((state.ledger || []).filter((r) => r.status === "active").length >= 3) add("社訓が3件そろい、経営方針が明文化されている", 5);
+const passed = score >= 60;
+const next = structuredClone(state);
+next.status = passed ? "listed" : "unlisted";
+next.listingResult = { score, passed, factors };
+return { state: next, result: next.listingResult };
+}

@@ -262,7 +262,7 @@ body[data-mode="black"] .dash-funds strong, body[data-mode="black"] .dash-stat s
 .goal-panel { margin-bottom: 10px; }
 .goal-final { font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
 .goal-segs { display: flex; gap: 4px; margin-top: 8px; }
-.goal-seg { flex: 1; text-align: center; font-size: 11px; padding: 5px 0; border-radius: 6px; background: #e7e2d5; color: var(--sub); white-space: nowrap; }
+.goal-seg { flex: 1; text-align: center; font-size: 9px; padding: 4px 0; border-radius: 6px; background: #e7e2d5; color: var(--sub); white-space: nowrap; }
 .goal-seg.done { background: var(--good); color: #fff; }
 .goal-seg.now { background: var(--ink); color: #fff; font-weight: 700; box-shadow: 0 0 0 2px #d9a441 inset; }
 .dash-funds-label { font-size: 13px; color: var(--sub); margin-right: 8px; }

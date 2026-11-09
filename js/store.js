@@ -27,6 +27,11 @@ export function defaultState(mode = null) {
     loanResult: null, // 融資審査の結果（M4）
     interviewUsedMonth: 0, // 面談を使った月（M4）
     hireUsedMonth: 0, // 採用を使った月（M14）
+    phaseSales: 0, // 今期の累計売上（M16）
+    phaseMonth: 1, // 今期に入ってからの月数（M16）
+    milestones: {}, // 発生済みの山場イベント（M16）
+    pendingMilestone: null, // 保留中の山場イベントキー（M16）
+    listingResult: null, // 上場審査の結果（M16）
     candidates: null, // 今月の採用候補 {month, list}（M14）
     interview: null, // 進行中の面談 {empId, concernKey}（M4）
     lastProfit: null, // 直近月の収支（M6：資金の持ち表示用）

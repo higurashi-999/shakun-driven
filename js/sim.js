@@ -5,14 +5,27 @@
 // ※このモジュールは他モジュールを import しない（node の単体テストで直接読み込むため）。
 
 export const PARAMS = {
-  fixedCost: 60, // 家賃・開発・雑費（万円／月）
   salesPerAbility: 14, // 能力1あたりの月次売上（万円、直接部門のみ）
   faithSalesSlope: 0.004, // 信仰度の平均からの乖離1につき売上±0.4%（最大±20%：Gallupの傾斜）
   turnoverCost: 1000, // 離職コスト（万円）＝再採用・引継ぎ・教育を含む概算
-  trialMonths: 6, // 試作（創業期）の月数
-  idealEmployees: 3, // 創業期の適正人数。不足すると残りの社員の負担が増える
-  maxEmployees: 5, // 創業期に雇える上限
+  trialMonths: 6, // 旧試作（創業期のみ）の月数。旧セーブの結果表示用に残す
 };
+
+// 本編のフェーズ定義（M16）：期は「その期の累計売上」が目標に達した月に進む。
+// months は標準月数（バランスの目安）、ideal は適正人数、max はその期に雇える上限、fixed は固定費（万円／月）。
+export const PHASES = {
+  1: { name: "創業期", months: 5, ideal: 3, max: 5, fixed: 60, salesTarget: 1700 },
+  2: { name: "組織化期", months: 6, ideal: 8, max: 10, fixed: 160, salesTarget: 4000 },
+  3: { name: "拡大期", months: 6, ideal: 12, max: 15, fixed: 320, salesTarget: 5800 },
+  4: { name: "成熟期", months: 7, ideal: 16, max: 20, fixed: 520, salesTarget: 10500 },
+};
+export const TOTAL_MONTHS = 24; // 全体の上限（届かなければ到達度で終了）
+export function phaseOf(state) { return PHASES[state.phase || 1] || PHASES[1]; }
+export function fixedCostOf(state) { return phaseOf(state).fixed; }
+export function idealOf(state) { return phaseOf(state).ideal; }
+export function maxOf(state) { return phaseOf(state).max; }
+// 人数から見たフェーズ（期は人数の帯でも決まる：売上目標の達成と人数の両方を見て進む）
+export function phaseForCount(n) { return n <= 5 ? 1 : n <= 10 ? 2 : n <= 15 ? 3 : 4; }
 
 // 人件費（M13→M14で月次化）：能力の5段階で決まる基本給＋経験区分の上乗せ＋勤続月数ぶんの昇給（上限あり）。
 export const ABILITY_SALARY = { 1: 30, 2: 37, 3: 43, 4: 50, 5: 56 }; // 万円／月
@@ -24,15 +37,22 @@ export function salaryOf(e, month) {
   return Math.round((ABILITY_SALARY[rank] + (EXP_SALARY[e.expTier] ?? 0) + raise) * 10) / 10;
 }
 
-// 部門の集計（M14）：direct＝売上を作る部門、indirect＝会社を回す部門
+// 部門の集計（M14／M16で責任者枠を複数化）：direct＝売上を作る部門、indirect＝会社を回す部門
+// 責任者枠（細分化）：部門の人数が6人以上になると2人まで（組織が育つとチームが分かれるイメージ）
+export function managerSlots(deptCount) { return deptCount >= 6 ? 2 : 1; }
 export function deptSummary(employees) {
   const direct = (employees || []).filter((e) => (e.dept || "direct") === "direct");
   const indirect = (employees || []).filter((e) => (e.dept || "direct") === "indirect");
+  const managersOf = (list) => list.filter((e) => e.role === "manager").sort((a, b) => b.ability - a.ability);
   return {
     direct,
     indirect,
-    directManager: direct.find((e) => e.role === "manager") || null,
-    indirectManager: indirect.find((e) => e.role === "manager") || null,
+    directManagers: managersOf(direct),
+    indirectManagers: managersOf(indirect),
+    directManager: managersOf(direct)[0] || null,
+    indirectManager: managersOf(indirect)[0] || null,
+    directSlots: managerSlots(direct.length),
+    indirectSlots: managerSlots(indirect.length),
   };
 }
 
@@ -82,12 +102,16 @@ export function simulateMonth(state, ctx) {
 
   /* 部門の状態：直接部門が売上を作り、間接部門がコストダウンとリスク抑制を担う（M14） */
   const dept = deptSummary(emps);
+  const phaseDef = phaseOf(next);
   let deptSalesFactor = 1;
   if (dept.direct.length === 0) deptSalesFactor = 0;
-  else if (dept.directManager) deptSalesFactor = 1 + 0.03 * Math.ceil(dept.directManager.ability / 2);
+  else if (dept.directManagers.length) {
+    const ranks = dept.directManagers.map((m) => Math.ceil(m.ability / 2));
+    deptSalesFactor = 1 + 0.03 * (ranks[0] || 0) + 0.02 * (ranks[1] || 0);
+  }
   else deptSalesFactor = 0.85;
   const indirectSavingRaw = dept.indirect.reduce((s2, e) => s2 + e.ability * 2.0, 0);
-  const fixedEffective = dept.indirect.length === 0 ? PARAMS.fixedCost * 1.2 : PARAMS.fixedCost;
+  const fixedEffective = dept.indirect.length === 0 ? phaseDef.fixed * 1.2 : phaseDef.fixed;
   // 間接部門の押し上げ（M15）：能力1あたり+2.5%、責任者がいれば×1.2／不在なら×0.6、上限+40%。
   // 間接の責任者（能力5）1人で+15%前後になる水準。間接が空の月は、直接の売上に−15%のペナルティ。
   let supportRate = dept.indirect.reduce((s2, e) => s2 + e.ability * 0.025, 0);
@@ -168,11 +192,11 @@ export function simulateMonth(state, ctx) {
 
   /* 社員の状態変化（体力ゲージと信仰度の2軸） */
   // 人数不足の負担：適正人数に足りない分だけ、体力の減りが重くなる（M13→M14：適正3人）
-  const burden = emps.length > 0 && emps.length < PARAMS.idealEmployees
-    ? Math.min(1.8, PARAMS.idealEmployees / emps.length)
+  const burden = emps.length > 0 && emps.length < phaseDef.ideal
+    ? Math.min(1.8, phaseDef.ideal / emps.length)
     : 1;
   if (burden > 1.05 && emps.length > 0) {
-    log.push(`⚠ 人数が適正（${PARAMS.idealEmployees}人）に足りず、1人あたりの負担が増えています（現在 ${emps.length}人）。`);
+    log.push(`⚠ 人数が適正（${phaseDef.ideal}人）に足りず、1人あたりの負担が増えています（現在 ${emps.length}人）。`);
   }
   for (const e of emps) {
     const staminaFactor = 1.25 - e.stamina * 0.05;
@@ -263,15 +287,44 @@ export function simulateMonth(state, ctx) {
   next.month = month + 1;
   delete next.week;
   next.candidates = null; // 月が替わったら候補は作り直す
+
+  /* フェーズの進行（M16）：期の累計売上が目標に達した月に、次の期へ進む */
+  next.phaseSales = round1((next.phaseSales || 0) + Math.max(0, sales));
+  next.phaseMonth = (next.phaseMonth || 1);
+  const salesDone = next.phaseSales >= phaseDef.salesTarget;
+  log.push(`今期の売上：累計 ${Math.round(next.phaseSales)}万円／目標 ${phaseDef.salesTarget}万円（${phaseDef.name}）`);
   if (next.funds < 0) {
     next.status = "bankrupt";
     log.push("💸 資金が枯渇しました。会社は倒産です。");
   } else if (next.employees.length === 0) {
     next.status = "empty";
     log.push("💸 社員が全員いなくなりました。会社は成り立ちません。");
-  } else if (month >= PARAMS.trialMonths) {
-    next.status = "cleared";
-    log.push("🎉 創業期を乗り切りました（試作の創業期編クリア）。");
+  } else if ((next.phase || 1) < 4 && salesDone) {
+    next.phase = (next.phase || 1) + 1;
+    next.phaseSales = 0;
+    next.phaseMonth = 1;
+    log.push(`🎉 ${PHASES[next.phase].name}へ進みました。新しい期の売上目標は ${PHASES[next.phase].salesTarget}万円です。`);
+    if (!next.pendingMilestone) next.pendingMilestone = `phase${next.phase}-in`;
+  } else if ((next.phase || 1) >= 4 && salesDone) {
+    // 成熟期の目標達成：株主総会を経て上場審査へ
+    if (!next.pendingMilestone) next.pendingMilestone = "shareholders";
+    log.push("🎉 成熟期の売上目標を達成しました。株主総会を経て、上場審査に進みます。");
+  } else {
+    next.phaseMonth = (next.phaseMonth || 1) + 1;
+    // 期の山場（期に入ってからの月数で固定発生）
+    const ms = next.milestones || {};
+    const due = [
+      [(next.phase || 1) === 2 && next.phaseMonth === 2 && !ms.p2rules, "phase2-rules"],
+      [(next.phase || 1) === 2 && next.phaseMonth === 4 && !ms.p2elders, "phase2-elders"],
+      [(next.phase || 1) === 3 && next.phaseMonth === 2 && !ms.p3vc, "phase3-vc"],
+      [(next.phase || 1) === 3 && next.phaseMonth === 4 && !ms.p3control, "phase3-control"],
+      [(next.phase || 1) === 4 && next.phaseMonth === 2 && !ms.p4union, "phase4-union"],
+    ].find(([ok]) => ok);
+    if (due && !next.pendingMilestone) next.pendingMilestone = due[1];
+    if (month >= TOTAL_MONTHS) {
+      next.status = "ended";
+      log.push(`⏰ ${TOTAL_MONTHS}か月が経過しました。上場には届きませんでしたが、会社の到達度で評価します。`);
+    }
   }
   return { state: next, log };
 }
@@ -281,7 +334,11 @@ export function summarize(state) {
   const emps = state.employees || [];
   return {
     status: state.status,
-    months: Math.min((state.month ?? state.week ?? 1) - 1, PARAMS.trialMonths),
+    months: Math.min((state.month ?? state.week ?? 1) - 1, TOTAL_MONTHS),
+    phase: state.phase || 1,
+    phaseName: (PHASES[state.phase || 1] || PHASES[1]).name,
+    phaseSales: Math.round(state.phaseSales || 0),
+    phaseTarget: (PHASES[state.phase || 1] || PHASES[1]).salesTarget,
     funds: state.funds,
     employees: emps.length,
     avgFaith: emps.length ? round1(avg(emps, "faith")) : 0,

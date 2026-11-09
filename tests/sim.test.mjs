@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { simulateMonth, summarize } from "../js/sim.js";
 import { initialEmployees } from "../js/employees.js";
 import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js";
+import { ensureCandidates, hireCandidate } from "../js/hiring.js";
 
 function makeState(overrides = {}) {
   return {
@@ -81,12 +82,37 @@ function addRule(state, overrides) {
   assert.equal(a.rngState, b.rngState);
 }
 
-// 通常プレイ（社訓なし）では6か月を生き残ってクリアできる（M14：初期2人・自動採用なし）
+// 通常プレイ（社訓なし・採用なし）では6か月時点ではまだ創業期の途中（M16：本編は24か月制）
 {
   const { state } = runMonths(makeState(), 6);
-  assert.equal(state.status, "cleared", JSON.stringify(summarize(state)));
+  assert.equal(state.status, "playing", JSON.stringify(summarize(state)));
   assert.ok(state.employees.length >= 2, "大量退職は起きない");
   assert.ok(state.funds > 0);
+}
+
+// M16：何もせず24か月回すと、上場には届かず必ず終了する（ended／bankrupt／empty のいずれか）
+{
+  const { state } = runMonths(makeState(), 24);
+  assert.notEqual(state.status, "playing", JSON.stringify(summarize(state)));
+  assert.notEqual(state.status, "listed");
+}
+
+// M16：毎月採用して売上目標を追う標準プレイでは、創業期の目標を達成して組織化期へ進める
+{
+  let s = makeState({ phaseSales: 0, phaseMonth: 1, milestones: {}, pendingMilestone: null, hireUsedMonth: 0, candidates: null });
+  addRule(s, { effects: { sales: 2, faith: 1 } });
+  addRule(s, { effects: { stamina: 2, faith: 1 } });
+  let guard = 0;
+  while (s.status === "playing" && s.phase < 2 && guard++ < 10) {
+    if (s.employees.length < 5 && s.hireUsedMonth !== s.month) {
+      const cands = [...ensureCandidates(s)].sort((a, b) => b.ability - a.ability);
+      if (cands.length) { const r = hireCandidate(s, cands[0].id); if (r.hired) s = r.state; }
+    }
+    s = simulateMonth(s, ctxOf(s)).state;
+    if (s.pendingMilestone) s.pendingMilestone = null; // 山場はテストでは消費だけする
+  }
+  assert.equal(s.phase, 2, `組織化期へ進めること: ${JSON.stringify(summarize(s))}`);
+  assert.equal(s.phaseSales, 0, "期が替わったら今期の累計売上はリセットされる");
 }
 
 // M14：1か月進めると、在籍する全員の収支実績（売上・コストダウン・人件費・1人あたり固定費・収支）が必ず出る
@@ -149,13 +175,13 @@ function addRule(state, overrides) {
   assert.ok(avgHp > 70, `体力・信仰重視3か月：平均体力 ${avgHp}`);
 }
 
-// 体力・信仰重視で6か月走ると、体力を保ったままクリアできる
+// 体力・信仰重視で6か月走ると、体力を保ったまま継続できる（M16：6か月では終わらない）
 {
   const s = makeState();
   addRule(s, { effects: { stamina: 3, faith: 2 } });
   addRule(s, { effects: { stamina: 2, faith: 2 } });
   const { state } = runMonths(s, 6);
-  assert.equal(state.status, "cleared");
+  assert.equal(state.status, "playing");
   const avgHp = state.employees.reduce((sum, e) => sum + e.hp, 0) / state.employees.length;
   assert.ok(avgHp > 65, `体力・信仰重視で体力が守られるはず: ${avgHp}`);
 }

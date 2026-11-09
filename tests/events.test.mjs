@@ -18,7 +18,9 @@ function makeState(overrides = {}) {
   const s = makeState();
   assert.equal(drawEventId(s, 2), drawEventId(s, 2));
   assert.ok(getEvent(drawEventId(s, 2)));
-  assert.equal(EVENTS.length, 12);
+  assert.equal(EVENTS.filter((e) => !e.milestone).length, 12, "ランダムイベントは12種");
+  assert.equal(EVENTS.length, 18, "山場イベント6種を加えて全18種");
+  assert.ok(!EVENTS.filter((e) => e.milestone).some((e) => e.id === drawEventId(s, 2)), "山場は抽選に出ない");
 }
 
 // 社訓の効果の有無で結果が変わる：労基イベント

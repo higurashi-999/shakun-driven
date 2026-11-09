@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.26">
+<link rel="stylesheet" href="css/style.css?v=20261102.27">
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">試作版（M13：効果5項目と人数・人件費の刷新）／仕様は SPEC.md を参照</p>
+  <p class="footnote">本編（M16：全24か月・4フェーズ・上場審査まで）／仕様は SPEC.md を参照</p>
 </section>
 
 <!-- 設定画面 -->
@@ -60,7 +60,7 @@
   <div class="mode-banner"><span id="st-mode">-</span>モードでプレイ中</div>
   <div id="goal-panel" class="goal-panel">
     <div class="goal-final">最終目標：上場審査をクリアする</div>
-    <div class="goal-head"><strong><span id="st-phase">創業期</span>の目標：6か月を完走する</strong><span id="goal-progress-label"></span></div>
+    <div class="goal-head"><strong><span id="st-phase">創業期</span>の目標：<span id="goal-phase-target">今期の売上を達成する</span></strong><span id="goal-progress-label"></span></div>
     <div class="goal-segs" id="goal-segs"></div>
   </div>
   <header class="status-bar dash-panel">
@@ -82,7 +82,7 @@
     <div id="guide-panel" class="guide-panel hidden">
       <div class="goal-head"><strong>はじめの進め方</strong><button id="btn-guide-close" class="mini">閉じる</button></div>
       <ol id="guide-steps"></ol>
-      <p class="goal-rules">クリア：6か月を完走する／敗北：資金が尽きる・社員が全員辞める</p>
+      <p class="goal-rules">進み方：各期の売上目標を達成すると次の期へ進みます（全24か月）／クリア：上場審査をクリアする／敗北：資金が尽きる・社員が全員辞める</p>
     </div>
     <h3>社訓台帳</h3>
     <p id="ledger-summary" class="note"></p>
@@ -218,7 +218,7 @@
   <div id="loan-intro">
     <h3>審査の目安と現在の状態</h3>
     <div id="loan-precheck"></div>
-    <p class="note">スコア60以上で優遇条件（500万円・金利1.5%）、40以上で通常条件（350万円・金利2.5%）、40未満は不合格です。</p>
+    <p class="note">スコア60以上で優遇条件（2,150万円・金利1.5%）、40以上で通常条件（1,500万円・金利2.5%）、40未満は不合格です。</p>
     <div class="row">
       <button id="btn-loan-apply" class="primary">審査を受ける</button>
       <button id="btn-loan-back" class="secondary">社長室へ戻る</button>
@@ -230,6 +230,28 @@
     <pre id="loan-result" class="preview"></pre>
     <div class="row">
       <button id="btn-loan-done" class="primary">月報へ</button>
+    </div>
+  </div>
+</section>
+
+
+<!-- 上場審査 -->
+<section id="screen-listing" class="screen">
+  <h2>上場審査</h2>
+  <p>証券取引所の審査担当が、財務・組織・評判・コンプライアンスを総合的に審査します。ここまでの経営の集大成です。</p>
+  <div id="listing-intro">
+    <h3>審査の目安と現在の状態</h3>
+    <div id="listing-precheck"></div>
+    <p class="note">スコア60以上で合格（上場）です。</p>
+    <div class="row">
+      <button id="btn-listing-apply" class="primary">審査を受ける</button>
+    </div>
+  </div>
+  <div id="listing-result-wrap" class="hidden">
+    <div id="listing-detail"></div>
+    <pre id="listing-result" class="preview"></pre>
+    <div class="row">
+      <button id="btn-listing-done" class="primary">結果へ</button>
     </div>
   </div>
 </section>
@@ -277,12 +299,12 @@
 <section id="screen-result" class="screen">
   <h2 id="result-title">結果</h2>
   <pre id="result-summary" class="preview"></pre>
-  <p class="note">試作版（創業期編）はここまでです。本編（全28か月・組織化期以降）は今後のマイルストーンで実装します。</p>
+  <p class="note">おつかれさまでした。もう一度遊ぶときは、タイトル画面から「はじめから」を選んでください。</p>
   <div class="row">
     <button id="btn-result-to-title" class="primary">タイトルへ</button>
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.26"></script>
+<script type="module" src="js/app.js?v=20261102.27"></script>
 </body>
 </html>

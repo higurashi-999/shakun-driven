@@ -1,12 +1,14 @@
 // 採用（M14）：月1回、候補3人から1人までを社長が選んで採用する（自動採用は廃止）。
 // 候補の顔ぶれは seed と月から決定的に作る（画面を開き直しても変わらない）。
 // 候補の能力と経験区分は評判に引っ張られる：評判が高い会社ほど、良い人材が応募してくる。
-import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.26";
-import { PARAMS } from "./sim.js?v=20261102.26";
+import { CANDIDATE_CHARACTERS, getCharacter } from "./employees.js?v=20261102.27";
+import { maxOf, phaseOf } from "./sim.js?v=20261102.27";
 
 export const HIRE_NAME_POOL = [
   "冬木 玲", "夏目 湊", "秋山 栞", "春日 陽", "星野 律",
   "月島 凪", "雪代 紬", "雨宮 慧", "風間 樹", "水瀬 凛",
+  "朝倉 葵", "夕霧 蓮", "東雲 梓", "深町 駿", "浅野 遥",
+  "白鳥 紗", "高瀬 航", "瀬戸 泉", "広瀬 渉", "青柳 翠",
 ];
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -74,7 +76,7 @@ export function ensureCandidates(state) {
 export function hireCandidate(state, candId) {
   const month = state.month ?? state.week ?? 1;
   if (state.hireUsedMonth === month) return { state, hired: null, reason: "今月はすでに採用しています" };
-  if ((state.employees || []).length >= PARAMS.maxEmployees) return { state, hired: null, reason: `創業期は最大 ${PARAMS.maxEmployees} 人までです` };
+  if ((state.employees || []).length >= maxOf(state)) return { state, hired: null, reason: `${phaseOf(state).name}は最大 ${maxOf(state)} 人までです` };
   const list = ensureCandidates(state);
   const cand = list.find((c) => c.id === candId);
   if (!cand) return { state, hired: null, reason: "候補が見つかりません" };

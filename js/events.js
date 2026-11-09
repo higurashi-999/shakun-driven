@@ -191,8 +191,9 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export function drawEventId(state, week) {
 const history = state.eventHistory || [];
 const recent = new Set(history.slice(-2));
-const pool = EVENTS.filter((e) =>!recent.has(e.id));
-const list = pool.length? pool: EVENTS;
+const base = EVENTS.filter((e) => !e.milestone);
+const pool = base.filter((e) =>!recent.has(e.id));
+const list = pool.length? pool: base;
 let s = ((state.seed || 1) ^ Math.imul(week + 1, 2654435761)) >>> 0;
 s = (s + 0x6d2b79f5) >>> 0;
 let t = s;
@@ -360,3 +361,103 @@ effectReason: String(obj.effectReason || "").slice(0, 60),
 
 // 社長命令の余波の上限（コード側の許可範囲）。LLMの提案はこの範囲に必ず切り詰める。
 export const SIDE_LIMITS = { funds: 130, faith: 8, hp: 10, reputation: 5, risk: 8 };
+
+// 山場・法令イベント（M16）：フェーズの節目に固定発生する。ランダム抽選からは除外（milestone: true）。
+EVENTS.push(
+{
+id: "ms-phase2-rules",
+title: "就業規則の届出",
+hype: "会社が育ち、ルールの明文化が必要になった",
+category: "山場",
+milestone: true,
+body: "社員が増え、労働基準法で就業規則の作成と届出が義務になる規模が見えてきました。社訓を土台に、就業規則として整えて届け出る時期です。",
+omen: "",
+goodAxes: ["discipline"],
+badAxes: [],
+success: { reputation: 3, risk: -5 },
+fail: { funds: -150, reputation: -4 },
+successMsg: "就業規則を整えて届け出ました。会社の土台が一段固まりました。",
+failMsg: "届出が後手に回り、是正勧告を受けました。対応費用がかさみ、評判も落としました。",
+keywords: ["届出", "就業規則", "明文化", "整備", "提出", "作成"],
+},
+{
+id: "ms-phase2-elders",
+title: "古参の反発",
+hype: "創業メンバーから「昔と違う」の声",
+category: "山場",
+milestone: true,
+body: "組織化が進むなか、創業期からいる古参社員たちが「会社が変わってしまった」と口にし始めました。新しいやり方への反発が、現場に広がりつつあります。",
+omen: "",
+goodAxes: ["faith"],
+badAxes: ["sales"],
+success: { faithAll: 5 },
+fail: { faithAll: -6 },
+successMsg: "古参の声に耳を傾け、変わる部分と守る部分を整理しました。結束が戻りました。",
+failMsg: "古参の不満が放置され、社員の信仰度が下がりました。",
+keywords: ["古参", "話を聞く", "対話", "説明", "原点", "創業"],
+},
+{
+id: "ms-phase3-vc",
+title: "VCからの資金調達",
+hype: "ベンチャーキャピタルが成長資金を提示してきた",
+category: "山場",
+milestone: true,
+body: "拡大期に入り、ベンチャーキャピタルから出資の打診が来ました。大きな資金は成長を加速させますが、経営への要求も厳しくなります。交渉の席に着くかどうかは社長次第です。",
+omen: "",
+goodAxes: ["sales", "rep"],
+badAxes: [],
+success: { funds: 3000, reputation: 3 },
+fail: { funds: 800, reputation: -2 },
+successMsg: "良い条件で大型の資金調達がまとまりました。成長の弾みがつきます。",
+failMsg: "条件交渉は難航しましたが、小口の調達にはつながりました。",
+keywords: ["交渉", "条件", "事業計画", "成長", "提示", "説明"],
+},
+{
+id: "ms-phase3-control",
+title: "統制の危機",
+hype: "現場の判断がバラバラになり、品質にばらつきが出始めた",
+category: "山場",
+milestone: true,
+body: "拡大のスピードに統制が追いついていません。部署ごとに勝手な判断が増え、品質と納期にばらつきが出始めました。仕組みで締めるのか、現場の裁量を残すのかが問われます。",
+omen: "",
+goodAxes: ["discipline"],
+badAxes: [],
+success: { risk: -6, reputation: 2 },
+fail: { risk: 10, faithAll: -5 },
+successMsg: "最低限の型を整え、現場の判断がそろい始めました。",
+failMsg: "統制が効かず、現場の混乱が深まりました。リスクが積み上がっています。",
+keywords: ["仕組み", "ルール", "統一", "マニュアル", "型", "管理"],
+},
+{
+id: "ms-phase4-union",
+title: "労働組合の結成",
+hype: "社員たちが労働組合を結成し、団体交渉を申し入れてきた",
+category: "山場",
+milestone: true,
+body: "成熟期に入り、社員たちが労働組合を結成しました。団体交渉の申し入れがあり、会社としての姿勢が問われます。対話の場を持つかどうかで、今後の労使関係が大きく変わります。",
+omen: "",
+goodAxes: ["faith", "stamina"],
+badAxes: ["sales"],
+success: { reputation: 4, risk: -5 },
+fail: { risk: 12, reputation: -5 },
+successMsg: "誠実に対話の場を持ち、健全な労使関係の土台ができました。",
+failMsg: "対応がこじれ、労使の溝が深まりました。リスクと評判に傷がつきました。",
+keywords: ["対話", "交渉", "誠実", "聞く", "協議", "向き合う"],
+},
+{
+id: "ms-shareholders",
+title: "株主総会",
+hype: "上場審査の前に、株主への説明責任が問われる",
+category: "山場",
+milestone: true,
+body: "成熟期の売上目標を達成し、上場が見えてきました。株主総会では、これまでの経営とこれからの方針について、株主からの厳しい質問に答える必要があります。",
+omen: "",
+goodAxes: ["rep", "discipline"],
+badAxes: [],
+success: { reputation: 5 },
+fail: { reputation: -5, risk: 5 },
+successMsg: "株主総会は承認で終わりました。上場審査へ進みます。",
+failMsg: "総会は紛糾しましたが、上場審査の機会は残されています。",
+keywords: ["説明", "方針", "実績", "透明", "報告", "質問"],
+}
+);

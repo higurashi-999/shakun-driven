@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.26";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.26";
+} from "./store.js?v=20261102.27";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.27";
 import {
 registerRule,
 abolishRule,
@@ -20,18 +20,18 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.26";
-import { extractRule} from "./extract.js?v=20261102.26";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.26";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary } from "./sim.js?v=20261102.26";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.26";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.26";
-import { narrateMonth } from "./report.js?v=20261102.26";
+} from "./ledger.js?v=20261102.27";
+import { extractRule} from "./extract.js?v=20261102.27";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.27";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.27";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.27";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.27";
+import { narrateMonth } from "./report.js?v=20261102.27";
 
-import { judgeLoan, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.26";
-import { TITLE_ART } from "./assets.js?v=20261102.26";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.27";
+import { TITLE_ART } from "./assets.js?v=20261102.27";
 
-const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire"];
+const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 
@@ -49,6 +49,7 @@ if (name === "ledger") renderLedger();
 if (name === "result") renderResult();
 if (name === "event") renderEvent();
 if (name === "loan") renderLoan();
+if (name === "listing") renderListing();
 if (name === "hire") renderHire();
 if (name === "interview") renderInterview();
 }
@@ -98,6 +99,12 @@ state.candidates = null;
 changed = true;
 }
 if (state.hireUsedMonth == null) { state.hireUsedMonth = 0; changed = true; }
+// M16：本編（フェーズ進行）の既定値を補う
+if (state.phase == null) { state.phase = 1; changed = true; }
+if (state.phaseSales == null) { state.phaseSales = 0; changed = true; }
+if (state.phaseMonth == null) { state.phaseMonth = 1; changed = true; }
+if (!state.milestones || typeof state.milestones !== "object") { state.milestones = {}; changed = true; }
+if (state.pendingMilestone === undefined) { state.pendingMilestone = null; changed = true; }
 for (const e of state.employees || []) {
 if (e.hiredMonth == null) { e.hiredMonth = e.hiredWeek ?? 1; changed = true; }
 if (!e.dept) { e.dept = e.id === "emp-4" ? "indirect" : "direct"; changed = true; }
@@ -160,9 +167,10 @@ $("funds-gauge-caption").textContent = state.loanDone
 $("st-employees").textContent = String(state.employees.length);
 {
 const ds = deptSummary(state.employees);
-$("st-staff-caption").textContent = state.employees.length >= PARAMS.idealEmployees
-? `適正人数 ${PARAMS.idealEmployees}人に達しています（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／上限 ${PARAMS.maxEmployees}人）`
-: `適正人数 ${PARAMS.idealEmployees}人まで あと${PARAMS.idealEmployees - state.employees.length}人（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／不足すると負担増）`;
+const idealNow = idealOf(state), maxNow = maxOf(state);
+$("st-staff-caption").textContent = state.employees.length >= idealNow
+? `適正人数 ${idealNow}人に達しています（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／上限 ${maxNow}人）`
+: `適正人数 ${idealNow}人まで あと${idealNow - state.employees.length}人（直接 ${ds.direct.length}・間接 ${ds.indirect.length}／不足すると負担増）`;
 }
 $("st-faith").textContent = state.employees.length ? String(Math.round(avgFaithNow)) : "-";
 $("faith-gauge-fill").style.width = `${Math.max(0, Math.min(100, avgFaithNow))}%`;
@@ -192,12 +200,16 @@ $("ledger-summary").textContent =
 `有効な社訓 ${active.length} 件／造語 ${state.glossary.length} 件` +
 (topFx.length? `／主な効果：${topFx.join("、")}`: "");
 // 目標パネル（M6）
-$("goal-progress-label").textContent = `第${Math.min(state.month, 6)}月／全6か月`;
+{
+const pd = phaseOf(state);
+$("goal-phase-target").textContent = `今期の売上 ${pd.salesTarget.toLocaleString("ja-JP")}万円を達成する（現在 ${Math.round(state.phaseSales || 0).toLocaleString("ja-JP")}万円）`;
+}
+$("goal-progress-label").textContent = `第${Math.min(state.month, TOTAL_MONTHS)}月／全${TOTAL_MONTHS}か月`;
 $("goal-segs").innerHTML = "";
-for (let i = 1; i <= 6; i++) {
+for (let i = 1; i <= TOTAL_MONTHS; i++) {
 const seg = document.createElement("span");
 seg.className = "goal-seg" + (i < state.month ? " done" : i === state.month && state.status === "playing" ? " now" : "");
-seg.textContent = `第${i}月`;
+seg.textContent = `${i}`;
 $("goal-segs").appendChild(seg);
 }
 // 初回ガイド（M6）
@@ -375,9 +387,9 @@ $("btn-interview").disabled = state.status !== "playing" || ivUsed || !state.emp
 $("btn-interview").textContent = ivUsed ? "1 on 1（今月は実施済み）" : "1 on 1をする";
 // 採用：月1回まで・上限5人（M14）
 const hireUsed = state.hireUsedMonth === state.month;
-const hireFull = state.employees.length >= PARAMS.maxEmployees;
+const hireFull = state.employees.length >= maxOf(state);
 $("btn-hire").disabled = state.status !== "playing" || hireUsed || hireFull;
-$("btn-hire").textContent = hireFull ? `採用（上限${PARAMS.maxEmployees}人に到達）` : hireUsed ? "採用（今月は実施済み）" : "採用する（今月の候補）";
+$("btn-hire").textContent = hireFull ? `採用（上限${maxOf(state)}人に到達）` : hireUsed ? "採用（今月は実施済み）" : "採用する（今月の候補）";
 $("office-note").textContent =
 state.status!== "playing" ? "" :
 (() => {
@@ -417,6 +429,26 @@ return;
 if (processedMonth === 4 && !state.loanDone) {
 show("loan");
 return;
+}
+// 山場・法令イベント（M16）はランダムイベントより優先する
+const MILESTONE_EVENTS = { "phase2-rules": "ms-phase2-rules", "phase2-elders": "ms-phase2-elders", "phase3-vc": "ms-phase3-vc", "phase3-control": "ms-phase3-control", "phase4-union": "ms-phase4-union", "shareholders": "ms-shareholders" };
+if (state.pendingMilestone) {
+const key = state.pendingMilestone;
+state.pendingMilestone = null;
+const msId = MILESTONE_EVENTS[key];
+if (msId) {
+const ev = getEvent(msId);
+state.milestones = { ...(state.milestones || {}), [key]: true };
+state.pendingEventId = null;
+if (ev) {
+state.currentEvent = { id: ev.id, milestone: key };
+state.eventHistory = [...(state.eventHistory || []), ev.id];
+saveState(state);
+show("event");
+return;
+}
+}
+saveState(state);
 }
 // 今月のイベント（先月に引いた pending があればそれ、なければ今引く）
 let eventId = state.pendingEventId;
@@ -501,6 +533,7 @@ btn.textContent = "この内容で対応する";
 const res = resolveEvent(state, ev, action, effectsMap(), state.glossary.length, aiJudge);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
+if (state.currentEvent && state.currentEvent.milestone === "shareholders") state.afterEvent = "listing";
 state.currentEvent = null;
 saveState(state);
 $("ev-result").textContent = res.lines.join("\n");
@@ -583,10 +616,67 @@ function appointManager(empId) {
 if (!state) return;
 const e = state.employees.find((x) => x.id === empId);
 if (!e) return;
-for (const x of state.employees) if ((x.dept || "direct") === (e.dept || "direct")) x.role = "member";
+const dept = e.dept || "direct";
+const members = state.employees.filter((x) => (x.dept || "direct") === dept);
+const slots = managerSlots(members.length);
+const others = members.filter((x) => x.role === "manager" && x.id !== e.id);
+if (others.length >= slots) {
+others.sort((a, b) => a.ability - b.ability);
+others[0].role = "member"; // 枠がいっぱいのときは、いちばん能力の低い責任者と交代する
+}
 e.role = "manager";
 saveState(state);
 renderOffice();
+}
+
+/* ---------- 上場審査（M16） ---------- */
+function renderListingDetail(r) {
+const box = $("listing-detail");
+const gaugePct = Math.max(0, Math.min(100, r.score));
+let html = `<div class="loan-score"><span>スコア</span><strong>${r.score}</strong><span class="note">／100（60で合格）</span></div>`;
+html += `<div class="gauge loan-gauge"><div class="gauge-fill" style="width:${gaugePct}%"></div><span class="gauge-tick" style="left:60%"></span></div>`;
+if (r.factors && r.factors.length) {
+html += `<div class="loan-factors">` + r.factors.map((f) => {
+const w = Math.min(100, Math.abs(f.points) / 20 * 100);
+return `<div class="factor-row"><span class="factor-label">${f.label}</span><span class="factor-bar"><i class="${f.points >= 0 ? "pos" : "neg"}" style="width:${w}%"></i></span><strong class="${f.points >= 0 ? "pos" : "neg"}">${f.points >= 0 ? "+" : ""}${f.points}</strong></div>`;
+}).join("") + `</div>`;
+}
+box.innerHTML = html;
+}
+function renderListing() {
+if (!state) return;
+migrateState();
+if (state.listingResult) {
+const r = state.listingResult;
+$("listing-result").textContent = r.passed
+? `【上場審査】スコア ${r.score} ― 合格。上場が承認されました。`
+: `【上場審査】スコア ${r.score} ― 不合格（合格ラインは60）。`;
+renderListingDetail(r);
+$("listing-intro").classList.add("hidden");
+$("listing-result-wrap").classList.remove("hidden");
+} else {
+$("listing-intro").classList.remove("hidden");
+$("listing-result-wrap").classList.add("hidden");
+const avgF = state.employees.length ? Math.round(state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length) : 0;
+const rows = [
+{ label: "資金", now: `${Math.round(state.funds).toLocaleString("ja-JP")}万円`, target: "目安 5,000万円", ok: state.funds >= 5000 },
+{ label: "社員数", now: `${state.employees.length}人`, target: "目安 16人", ok: state.employees.length >= 16 },
+{ label: "評判", now: `${Math.round(state.reputation)}`, target: "目安 55", ok: state.reputation >= 55 },
+];
+if (state.mode !== "black") rows.push({ label: "平均信仰度", now: `${avgF}`, target: "目安 60", ok: avgF >= 60 });
+else rows.push({ label: "平均信仰度", now: `${avgF}`, target: "ブラックでは判定対象外", ok: null });
+rows.push({ label: "告発リスク", now: `${Math.round(state.risk)}`, target: "目安 10未満", ok: state.risk < 10 });
+$("listing-precheck").innerHTML = `<div class="criteria">${rows.map((r) => `<div class="criteria-row"><span>${r.label}</span><strong>${r.now}</strong><span class="note">${r.target}</span><span class="criteria-mark">${r.ok === null ? "―" : r.ok ? "✓ 達成" : "未達"}</span></div>`).join("")}</div>` +
+`<p class="note">このほかに、部門と責任者の体制、社訓の件数も採点されます。審査は一度きりです。</p>`;
+}
+}
+function onListingApply() {
+if (!state || state.listingResult) return;
+const res = judgeListing(state);
+state = res.state;
+state.lastReport = [...(state.lastReport || []), res.result.passed ? "🎉 上場審査に合格しました。" : "📋 上場審査は不合格でした。"];
+saveState(state);
+renderListing();
 }
 
 /* ---------- 採用画面（M14） ---------- */
@@ -596,9 +686,9 @@ migrateState();
 const list = ensureCandidates(state);
 saveState(state);
 const used = state.hireUsedMonth === state.month;
-const full = state.employees.length >= PARAMS.maxEmployees;
+const full = state.employees.length >= maxOf(state);
 $("hire-note").textContent = full
-? `創業期は最大${PARAMS.maxEmployees}人までです。`
+? `${phaseOf(state).name}は最大${maxOf(state)}人までです。次の期に進むと上限が増えます。`
 : used
 ? "今月の採用は実施済みです（月1回まで）。候補は来月入れ替わります。"
 : "候補は毎月入れ替わります。能力と経験は会社の評判に引っ張られます（評判が高いほど良い人材が来ます）。採用は月1人までです。構成の目安：売上を立てるのは直接部門なので直接が多めが基本です。間接部門は売上を押し上げますが、0人だと直接の売上も伸び悩みます。";
@@ -797,11 +887,14 @@ function renderResult() {
 if (!state) return;
 const s = summarize(state);
 $("result-title").textContent =
+s.status === "listed"? "🎉 上場達成":
+s.status === "unlisted"? "📋 上場審査 不合格":
+s.status === "ended"? "⏰ 24か月到達":
 s.status === "cleared"? "🎉 創業期クリア":
 s.status === "bankrupt"? "💸 倒産":
 s.status === "empty"? "💸 社員が全員退職": "結果";
 $("result-summary").textContent = [
-`経過：${s.months} か月`,
+`経過：${s.months} か月／到達フェーズ：${s.phaseName}`,
 `資金：${Math.round(s.funds)} 万円`,
 `社員：${s.employees} 人`,
 `平均信仰度：${Math.round(s.avgFaith)}／平均体力：${Math.round(s.avgHp)}`,
@@ -1095,9 +1188,12 @@ $("btn-advance").addEventListener("click", onAdvance);
 $("btn-ev-respond").addEventListener("click", () => onEventResolve({ type: "respond", text: $("ev-response").value }));
 $("btn-ev-ignore").addEventListener("click", () => onEventResolve({ type: "ignore" }));
 $("btn-ev-done").addEventListener("click", () => {
-if (state && state.status!== "playing") show("result");
-else finishWeek();
+if (state && state.status!== "playing") { show("result"); return; }
+if (state && state.afterEvent === "listing") { state.afterEvent = null; saveState(state); show("listing"); return; }
+finishWeek();
 });
+$("btn-listing-apply").addEventListener("click", onListingApply);
+$("btn-listing-done").addEventListener("click", () => show("result"));
 $("btn-loan").addEventListener("click", () => show("loan"));
 $("btn-hire").addEventListener("click", () => show("hire"));
 $("btn-hire-back").addEventListener("click", () => show("office"));

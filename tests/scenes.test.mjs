@@ -1,6 +1,6 @@
 // 融資審査と面談の判定テスト（node tests/scenes.test.mjs）
 import assert from "node:assert/strict";
-import { judgeLoan, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun, rankOf } from "../js/scenes.js";
+import { judgeLoan, judgeListing, judgeInterview, pickInterviewTarget, detectConcern, evaluateRun, rankOf } from "../js/scenes.js";
 import { initialEmployees } from "../js/employees.js";
 import { validateRecord, registerRule, aggregateEffects } from "../js/ledger.js";
 
@@ -155,3 +155,18 @@ assert.equal(mot.state.employees[0].faith, 53, "信仰+8（45→53）");
 const parsedReply = parseOneOnOneReply('{"reply":"ありがとうございます。","pointDelta":4}');
 assert.equal(parsedReply.pointDelta, 4);
 assert.equal(parseOneOnOneReply("not json"), null);
+
+/* ---------- M16：上場審査 ---------- */
+{
+  const emp = (i) => ({ id: `e${i}`, name: `社員${i}`, ability: 7, hp: 80, faith: 70, dept: i % 3 === 2 ? "indirect" : "direct", role: i === 0 || i === 2 ? "manager" : "member" });
+  const strong = { mode: "white", funds: 9000, reputation: 70, risk: 5, employees: Array.from({ length: 16 }, (_, i) => emp(i)), ledger: [{ status: "active" }, { status: "active" }, { status: "active" }] };
+  const ok = judgeListing(strong);
+  assert.equal(ok.result.passed, true, `強い状態では合格: score=${ok.result.score}`);
+  assert.equal(ok.state.status, "listed");
+  assert.ok(ok.result.factors.length >= 5, "要因が並ぶ");
+  const weak = { mode: "white", funds: 1000, reputation: 30, risk: 40, employees: [emp(0)], ledger: [] };
+  const ng = judgeListing(weak);
+  assert.equal(ng.result.passed, false, `弱い状態では不合格: score=${ng.result.score}`);
+  assert.equal(ng.state.status, "unlisted");
+  console.log("LISTING TESTS OK");
+}
