@@ -350,3 +350,11 @@ body[data-mode="black"] .goal-final { letter-spacing: .12em; }
 .goal-panel.phase-flash { animation: phaseFlash 1.1s ease-out 2; }
 @keyframes bandIn { from { transform: translateX(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
 #screen-event.active #ev-category { animation: bandIn .35s ease-out; }
+
+/* M17.2：1on1をLINE風に（社員の吹き出しの横に顔写真アバター） */
+.chat-row.emp { display: flex; align-items: flex-start; gap: 8px; background: none; border: none; padding: 0; max-width: 94%; }
+.chat-row.me { display: flex; justify-content: flex-end; background: none; padding: 0; max-width: 94%; }
+.chat-bubble { padding: 8px 12px; border-radius: 12px; line-height: 1.55; white-space: pre-wrap; }
+.chat-row.emp .chat-bubble { background: var(--highlight-bg); border: 1px solid var(--line); border-bottom-left-radius: 2px; }
+.chat-row.me .chat-bubble { background: var(--accent2); color: #fdfaf2; border-bottom-right-radius: 2px; }
+.chat-av { width: 40px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; }

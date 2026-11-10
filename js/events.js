@@ -59,7 +59,7 @@ badAxes: [],
 responseKeywords: ["請求", "契約", "催促", "期限", "書面"],
 success: { funds: 110, reputation: 1, fatigueAll: 0, faithAll: 0, risk: 0},
 fail: { funds: -110, reputation: -1, fatigueAll: 0, faithAll: -2, risk: 0},
-successText: "契約どおりの催促が効き、遅れていた110万円が入金されました。",
+successText: "契約どおりの催促が効き、遅れていた売掛金が入金されました。",
 failText: "対応が後手に回り、資金繰りが110万円分苦しくなりました。",
 },
 {
@@ -227,6 +227,12 @@ for (const k of Object.keys(a)) out[k] = Math.round((a[k] + (b[k] || 0)) / 2);
 return out;
 }
 
+// 結果文中の金額は、実際に適用される金額（静観の7割・部分成功の平均など）に合わせて差し替える（M17.2）
+function outcomeText(text, effects) {
+if (!text || !effects || !effects.funds) return text;
+return text.replace(/[\d,]+万円/, `${Math.abs(effects.funds).toLocaleString("ja-JP")}万円`);
+}
+
 // 対応の判定と効果適用（純粋関数）。
 // action: {type:"respond", text} | {type:"ignore"}
 // effects: 台帳の効果集計（{sales: 値, ...} の5項目マップ）
@@ -241,7 +247,7 @@ grade = "静観";
 effects = scaleEffects(event.fail, 0.7);
 if (abandoned) lines.push(`対応の社長命令：${action.text}（実質的に静観として扱われました）`);
 lines.push("対応せず静観しました。");
-lines.push(event.failText);
+lines.push(outcomeText(event.failText, effects));
 } else {
 let tagScore = 0;
 for (const t of event.goodAxes || []) tagScore += (ledgerFx || {})[t] || 0;
@@ -266,7 +272,7 @@ else grade = "失敗";
 effects = grade === "成功"? {...event.success}: grade === "部分成功"? mixEffects(event.success, event.fail): {...event.fail};
 lines.push(`対応の社長命令：${action.text || "（文面なし）"}`);
 if (aiJudge) lines.push(`AI判定：${aiJudge.rationale}（関連性 ${aiJudge.relevance}/2、具体性 ${aiJudge.specificity}/2、台帳整合性 ${aiJudge.consistency > 0 ? "あり" : aiJudge.consistency < 0 ? "矛盾あり" : "中立"}、スコア ${Math.round(score * 10) / 10}）`);
-lines.push(grade === "失敗"? event.failText: event.successText);
+lines.push(outcomeText(grade === "失敗" ? event.failText : event.successText, effects));
 if (grade === "部分成功") lines.push("ただし備えが十分ではなく、効果は限定的でした。");
 }
 // 造語が多い会社ほど評判イベントの振れ幅が大きい

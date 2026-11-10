@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.29";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.29";
+} from "./store.js?v=20261102.30";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.30";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.29";
-import { extractRule} from "./extract.js?v=20261102.29";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.29";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.29";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.29";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.29";
-import { narrateMonth } from "./report.js?v=20261102.29";
+} from "./ledger.js?v=20261102.30";
+import { extractRule} from "./extract.js?v=20261102.30";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.30";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.30";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.30";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.30";
+import { narrateMonth } from "./report.js?v=20261102.30";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.29";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.29";
-import { portraitUri } from "./portraits.js?v=20261102.29";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.30";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.30";
+import { portraitUri } from "./portraits.js?v=20261102.30";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -142,6 +142,15 @@ if (e.faith >= 65 && e.hp >= 50) return "smile";
 if (e.faith <= 40) return "anger";
 if (e.hp <= 35) return "sad";
 return "normal";
+}
+// M17.2：1on1の返答時点の感情。ポイント変動（delta）と残り余裕（points比）から決める
+function ivExprOf(emp, session, delta) {
+const init = Math.max(1, session.initialPoints || session.points || 1);
+const ratio = session.points / init;
+if (delta >= 3) return "smile";
+if (delta <= -10 || (delta < 0 && ratio <= 0.3)) return "anger";
+if (delta <= -3) return "sad";
+return exprOf(emp);
 }
 function portraitImgEl(person, expr, cls) {
 const uri = portraitUri(person, state ? state.mode : "white", expr);
@@ -829,7 +838,7 @@ return;
 }
 const emp = state.employees.find((e) => e.id === session.empId);
 $("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
-{ const ivp = $("iv-portrait"); if (ivp) { const uri = emp ? portraitUri(emp, state.mode, exprOf(emp)) : null; ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); } }
+{ const ivp = $("iv-portrait"); if (ivp) { const lastEmp = [...session.log].reverse().find((h) => h.who === "emp"); const uri = emp ? portraitUri(emp, state.mode, (lastEmp && lastEmp.expr) || exprOf(emp)) : null; ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); } }
 if (emp) {
 const f5 = Math.min(5, Math.max(0, Math.ceil(emp.ability / 2)));
 $("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の収支貢献 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（${(emp.dept || "direct") === "direct" ? `売上 ${Math.round(emp.lastSales)}` : `直接部門貢献 ${Math.round(emp.lastUplift || 0)}＋コストダウン ${Math.round(emp.lastSaving)}`}−人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}−1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}）` : "先月の収支貢献 ―"}`;
@@ -838,10 +847,30 @@ $("iv-turns").textContent = session.done ? "" : `往復 ${session.turns}／${ONE
 const log = $("iv-log");
 log.innerHTML = "";
 for (const h of session.log) {
+// M17.2：LINE風に、社員の発言は吹き出しの横にその時点の表情の顔写真を出す
+if (h.who === "emp") {
 const row = document.createElement("div");
-row.className = `chat-row ${h.who}`;
+row.className = "chat-row emp";
+if (emp) { const av = portraitImgEl(emp, h.expr || exprOf(emp), "chat-av"); if (av) row.appendChild(av); }
+const bub = document.createElement("div");
+bub.className = "chat-bubble";
+bub.textContent = h.text;
+row.appendChild(bub);
+log.appendChild(row);
+} else if (h.who === "me") {
+const row = document.createElement("div");
+row.className = "chat-row me";
+const bub = document.createElement("div");
+bub.className = "chat-bubble";
+bub.textContent = h.text;
+row.appendChild(bub);
+log.appendChild(row);
+} else {
+const row = document.createElement("div");
+row.className = "chat-row sys";
 row.textContent = h.text;
 log.appendChild(row);
+}
 }
 $("iv-action-wrap").classList.toggle("hidden", !!session.done);
 $("iv-result-wrap").classList.toggle("hidden", !session.done);
@@ -853,12 +882,14 @@ if (!state || state.interviewUsedMonth === state.month) return;
 const emp = state.employees.find((e) => e.id === empId);
 if (!emp) return;
 const ch = getCharacter(empId);
+const p0 = oneOnOneInitialPoints(emp, ch);
 state.oneOnOne = {
 month: state.month,
 empId,
 turns: 0,
-points: oneOnOneInitialPoints(emp, ch),
-log: [{ who: "emp", text: ch.opening }],
+points: p0,
+initialPoints: p0,
+log: [{ who: "emp", text: ch.opening, expr: exprOf(emp) }],
 playerTexts: [],
 done: false,
 resultLines: [],
@@ -896,11 +927,11 @@ ivBusy = false;
 setIvBusy(false);
 if (!reply) reply = ONE_ON_ONE_FALLBACKS[session.turns % ONE_ON_ONE_FALLBACKS.length];
 session.points += delta;
-session.log.push({ who: "emp", text: reply });
+session.log.push({ who: "emp", text: reply, expr: ivExprOf(emp, session, delta) });
 saveState(state);
 renderInterview();
 if (session.points <= 0) {
-session.log.push({ who: "emp", text: ch.cutoff });
+session.log.push({ who: "emp", text: ch.cutoff, expr: "anger" });
 session.log.push({ who: "sys", text: "（相手の心が限界を迎え、会話は打ち切られました）" });
 saveState(state);
 finishOneOnOne();
