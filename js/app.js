@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.27";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.27";
+} from "./store.js?v=20261102.28";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.28";
 import {
 registerRule,
 abolishRule,
@@ -20,20 +20,22 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.27";
-import { extractRule} from "./extract.js?v=20261102.27";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.27";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.27";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.27";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.27";
-import { narrateMonth } from "./report.js?v=20261102.27";
+} from "./ledger.js?v=20261102.28";
+import { extractRule} from "./extract.js?v=20261102.28";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.28";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.28";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.28";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.28";
+import { narrateMonth } from "./report.js?v=20261102.28";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.27";
-import { TITLE_ART } from "./assets.js?v=20261102.27";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.28";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.28";
+import { portraitUri } from "./portraits.js?v=20261102.28";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
+let lastPhaseSeen = null; // M17：フェーズアップ演出の判定用
 
 const $ = (id) => document.getElementById(id);
 
@@ -133,6 +135,38 @@ if (e.hp <= 35 || e.faith <= 40) return "😩";
 if (e.faith >= 65 && e.hp >= 50) return "😄";
 return "🙂";
 }
+// 表情差分（M17）：社員の様子に連動させる
+function exprOf(e) {
+const m = moodOf(e);
+return m === "😄" ? "smile" : (m === "😩" || m === "😵") ? "sad" : "normal";
+}
+function portraitImgEl(person, expr, cls) {
+const uri = portraitUri(person, state ? state.mode : "white", expr);
+if (!uri) return null;
+const img = document.createElement("img");
+img.className = cls;
+img.src = uri;
+img.alt = "";
+return img;
+}
+/* ---------- アイコン（インラインSVG、currentColorでモード色に追従） ---------- */
+const ICONS = {
+funds: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 9l3.5 4 3.5-4M12 13v6M9.2 15.6h5.6M9.2 18h5.6"/></svg>',
+staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.2c2.3.2 4 1.8 4.5 4.3"/></svg>',
+faith: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-9-9C2.1 8.3 3.6 5.5 6.2 4.8 8 4.3 10 5.4 12 8c2-2.6 4-3.7 5.8-3.2 2.6.7 4.1 3.5 3.2 6.2-1.5 4.4-9 9-9 9z"/></svg>',
+rep: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.4 4.9 5.4.8-3.9 3.8 1 5.4-4.9-2.6-4.9 2.6 1-5.4L4.2 9.7l5.4-.8z"/></svg>',
+risk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.8 20h18.4z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>',
+ledger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 3v18M12.5 8h4M12.5 12h4"/></svg>',
+talk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v9a1.5 1.5 0 01-1.5 1.5H12l-4.5 4v-4H5.5A1.5 1.5 0 014 14.5z"/><path d="M8 9h8M8 12h5"/></svg>',
+advance: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l7 7-7 7M13 5l7 7-7 7"/></svg>',
+loan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9L12 3.5 20.5 9M5 9.5V17M9.7 9.5V17M14.3 9.5V17M19 9.5V17M3.5 20.5h17M3.5 17h17"/></svg>',
+};
+function injectIcons() {
+document.querySelectorAll("[data-icon]").forEach((el) => {
+const svg = ICONS[el.dataset.icon];
+if (svg) el.insertAdjacentHTML("afterbegin", `<span class="ic">${svg}</span>`);
+});
+}
 // 「注意」「退職圏」の理由（何が問題かをUIで明示する、M14）
 function moodReason(e) {
 if (e.hp <= 15) return "体力が危険域です";
@@ -156,6 +190,8 @@ migrateState();
 $("st-mode").textContent =
 state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": "-";
 $("st-phase").textContent = PHASE_NAMES[state.phase] || "創業期";
+if (lastPhaseSeen != null && state.phase > lastPhaseSeen) { const gp = $("goal-panel"); if (gp) { gp.classList.remove("phase-flash"); void gp.offsetWidth; gp.classList.add("phase-flash"); } }
+lastPhaseSeen = state.phase;
 const avgFaithNow = state.employees.length ? state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length : 0;
 $("st-funds").textContent = Math.round(state.funds).toLocaleString("ja-JP");
 $("funds-gauge-fill").style.width = `${Math.max(0, Math.min(100, (state.funds / 3500) * 100))}%`;
@@ -228,9 +264,14 @@ const orderedEmps = [...state.employees].sort((a, b) => dangerOf(b) - dangerOf(a
 for (const e of orderedEmps) {
 const card = document.createElement("div");
 card.className = "card";
+const head = document.createElement("div");
+head.className = "emp-head";
+const pimg = portraitImgEl(e, exprOf(e), "emp-portrait");
+if (pimg) head.appendChild(pimg);
 const name = document.createElement("strong");
 name.textContent = e.name;
-card.appendChild(name);
+head.appendChild(name);
+card.appendChild(head);
 const meta = document.createElement("div");
 meta.className = "trait-rows";
 const dots5 = (v) => { const f = Math.min(5, Math.max(0, Math.ceil(v / 2))); return "●".repeat(f) + "○".repeat(5 - f); };
@@ -698,9 +739,14 @@ const dots5 = (v) => { const f = Math.min(5, Math.max(0, Math.ceil(v / 2))); ret
 for (const c of list) {
 const card = document.createElement("div");
 card.className = "card";
+const head = document.createElement("div");
+head.className = "emp-head";
+const pimg = portraitImgEl(c.named ? { id: c.id } : { name: c.name }, "normal", "emp-portrait");
+if (pimg) head.appendChild(pimg);
 const name = document.createElement("strong");
 name.textContent = c.name + (c.named ? "（顔なじみ）" : "");
-card.appendChild(name);
+head.appendChild(name);
+card.appendChild(head);
 const meta = document.createElement("p");
 meta.className = "note emp-sub";
 meta.textContent = `${c.dept === "direct" ? "直接部門" : "間接部門"}／社員として採用／経験区分：${c.expTier}／人件費 月${salaryOf({ ability: c.ability, expTier: c.expTier, hiredMonth: state.month }, state.month)}万円`;
@@ -755,6 +801,8 @@ for (const e of state.employees) {
 const ch = getCharacter(e.id);
 const btn = document.createElement("button");
 btn.className = "iv-emp-btn";
+const pimg = portraitImgEl(e, exprOf(e), "iv-thumb");
+if (pimg) btn.appendChild(pimg);
 const stateLine = state.mode === "black" ? "状態の詳細は伏せられています" : `体力 ${Math.round(e.hp)}／信仰度 ${Math.round(e.faith)}`;
 const strong = document.createElement("strong");
 strong.textContent = e.name;
@@ -773,6 +821,7 @@ return;
 }
 const emp = state.employees.find((e) => e.id === session.empId);
 $("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
+{ const ivp = $("iv-portrait"); if (ivp) { const uri = emp ? portraitUri(emp, state.mode, exprOf(emp)) : null; ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); } }
 if (emp) {
 const f5 = Math.min(5, Math.max(0, Math.ceil(emp.ability / 2)));
 $("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の収支貢献 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（${(emp.dept || "direct") === "direct" ? `売上 ${Math.round(emp.lastSales)}` : `直接部門貢献 ${Math.round(emp.lastUplift || 0)}＋コストダウン ${Math.round(emp.lastSaving)}`}−人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}−1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}）` : "先月の収支貢献 ―"}`;
@@ -1230,7 +1279,17 @@ $("ed-charcount").textContent = `${len}字（効果の合計上限 ${budgetForLe
 $("btn-register").addEventListener("click", onRegister);
 $("btn-gl-add").addEventListener("click", onGlossaryAdd);
 
-$("title-art").src = TITLE_ART;
+const savedMode = state && state.mode ? state.mode : null;
+const artFor = (m) => (m === "black" ? TITLE_ART_BLACK : TITLE_ART);
+$("title-art").src = artFor(savedMode);
+$("title-art").alt = savedMode === "black" ? "社訓ドリブン ― 深夜のビル" : "社訓ドリブン ― 屋上の朝礼と日の出";
+document.querySelectorAll(".mode-btn").forEach((b) => {
+const preview = () => { $("title-art").src = artFor(b.dataset.mode); };
+b.addEventListener("mouseenter", preview);
+b.addEventListener("focus", preview);
+});
+$("btn-mode-back").addEventListener("click", () => { $("title-art").src = artFor(savedMode); });
+injectIcons();
 show("title");
 $("btn-guide-close").addEventListener("click", () => {
 if (!state) return;
