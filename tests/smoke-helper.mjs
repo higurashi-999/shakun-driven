@@ -14,12 +14,15 @@ class El {
     this.dataset = {};
     this._classes = new Set();
     this.textContent = "";
-    this.innerHTML = "";
+    this._innerHTML = "";
     this.value = "";
     this.disabled = false;
     this.checked = false;
     this.src = "";
   }
+  // 実DOMに合わせ、innerHTML = "" で子要素をクリアする（再描画の回帰テスト用）
+  set innerHTML(v) { this._innerHTML = v; if (v === "") this.children = []; }
+  get innerHTML() { return this._innerHTML; }
   get classList() {
     const s = this._classes;
     return {

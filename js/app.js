@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.30";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.30";
+} from "./store.js?v=20261102.31";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.31";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.30";
-import { extractRule} from "./extract.js?v=20261102.30";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.30";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.30";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.30";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.30";
-import { narrateMonth } from "./report.js?v=20261102.30";
+} from "./ledger.js?v=20261102.31";
+import { extractRule} from "./extract.js?v=20261102.31";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.31";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.31";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.31";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.31";
+import { narrateMonth } from "./report.js?v=20261102.31";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.30";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.30";
-import { portraitUri } from "./portraits.js?v=20261102.30";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.31";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.31";
+import { portraitUri } from "./portraits.js?v=20261102.31";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -817,6 +817,7 @@ if (used) { picker.innerHTML = '<p class="note">今月の1on1は実施済みで�
 for (const e of state.employees) {
 const ch = getCharacter(e.id);
 const btn = document.createElement("button");
+btn.id = `iv-emp-${e.id}`;
 btn.className = "iv-emp-btn";
 const pimg = portraitImgEl(e, exprOf(e), "iv-thumb");
 if (pimg) btn.appendChild(pimg);
