@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.28";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.28";
+} from "./store.js?v=20261102.29";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.29";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.28";
-import { extractRule} from "./extract.js?v=20261102.28";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.28";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.28";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.28";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.28";
-import { narrateMonth } from "./report.js?v=20261102.28";
+} from "./ledger.js?v=20261102.29";
+import { extractRule} from "./extract.js?v=20261102.29";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.29";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.29";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.29";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.29";
+import { narrateMonth } from "./report.js?v=20261102.29";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.28";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.28";
-import { portraitUri } from "./portraits.js?v=20261102.28";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.29";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.29";
+import { portraitUri } from "./portraits.js?v=20261102.29";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -137,8 +137,11 @@ return "🙂";
 }
 // 表情差分（M17）：社員の様子に連動させる
 function exprOf(e) {
-const m = moodOf(e);
-return m === "😄" ? "smile" : (m === "😩" || m === "😵") ? "sad" : "normal";
+// M17.1：表情は信仰度（不満→怒り）と体力（疲労→悲しみ）で分ける
+if (e.faith >= 65 && e.hp >= 50) return "smile";
+if (e.faith <= 40) return "anger";
+if (e.hp <= 35) return "sad";
+return "normal";
 }
 function portraitImgEl(person, expr, cls) {
 const uri = portraitUri(person, state ? state.mode : "white", expr);
@@ -380,7 +383,7 @@ const dpart = (label, a, b, goodWhenUp) => {
 const diff = Math.round(b - a);
 if (!diff) { parts.push(`<span>${label} 変わらず</span>`); return; }
 const good = goodWhenUp ? diff > 0 : diff < 0;
-parts.push(`<span class="${good ? "up" : "down"}">${label} ${diff > 0 ? "▲+" + diff : "▼" + diff}</span>`);
+parts.push(`<span class="${good ? "up" : "down"}">${label} ${diff > 0 ? "▲" + diff : "▼" + Math.abs(diff)}</span>`);
 };
 dpart("資金", ps.funds, cur.funds, true);
 dpart("平均信仰", ps.avgFaith, cur.avgFaith, true);
@@ -396,6 +399,11 @@ $("week-report-raw").textContent = (state.lastReport || []).join("\n");
 $("report-raw-wrap").classList.remove("hidden");
 } else if (state.lastReport) {
 $("week-report").textContent = state.lastReport.join("\n");
+$("report-raw-wrap").classList.add("hidden");
+} else {
+// M17.1：新規ゲームでは前セーブの月報表示を残さない
+$("week-report").textContent = "まだ月を進めていません。社訓を整えてから「月を進める」を押してください。";
+$("week-report-raw").textContent = "";
 $("report-raw-wrap").classList.add("hidden");
 }
 const hasReport = !!(state.reportText || state.lastReport);
@@ -1230,7 +1238,12 @@ if (requireState()) show("editor");
 $("btn-to-ledger").addEventListener("click", () => {
 if (requireState()) show("ledger");
 });
-$("btn-back-from-office").addEventListener("click", () => show("title"));
+$("btn-back-from-office").addEventListener("click", () => {
+// M17.1：タイトルに戻るときはメインメニューを初期状態にする
+$("mode-select").classList.add("hidden");
+$("menu-main").classList.remove("hidden");
+show("title");
+});
 $("btn-back-from-editor").addEventListener("click", () => show("ledger"));
 $("btn-back-from-ledger").addEventListener("click", () => show("office"));
 $("btn-advance").addEventListener("click", onAdvance);
@@ -1268,27 +1281,30 @@ $("btn-result").addEventListener("click", () => show("result"));
 $("btn-result-to-title").addEventListener("click", () => show("title"));
 
 /* ---------- エディタ・台帳の操作 ---------- */
-document.querySelectorAll(".ex-chip").forEach((chip) => {
-chip.addEventListener("click", () => { $("ed-text").value = chip.dataset.ex || ""; });
-});
-$("btn-extract").addEventListener("click", onExtract);
-$("ed-text").addEventListener("input", () => {
+function updateCharCount() {
 const len = $("ed-text").value.length;
 $("ed-charcount").textContent = `${len}字（効果の合計上限 ${budgetForLength(len)}）― 長く具体的に書くほど、付けられる効果の合計が増えます（10字ごとに+1、最大6）`;
+}
+document.querySelectorAll(".ex-chip").forEach((chip) => {
+chip.addEventListener("click", () => { $("ed-text").value = chip.dataset.ex || ""; updateCharCount(); });
 });
+$("btn-extract").addEventListener("click", onExtract);
+$("ed-text").addEventListener("input", updateCharCount);
 $("btn-register").addEventListener("click", onRegister);
 $("btn-gl-add").addEventListener("click", onGlossaryAdd);
 
 const savedMode = state && state.mode ? state.mode : null;
-const artFor = (m) => (m === "black" ? TITLE_ART_BLACK : TITLE_ART);
-$("title-art").src = artFor(savedMode);
-$("title-art").alt = savedMode === "black" ? "社訓ドリブン ― 深夜のビル" : "社訓ドリブン ― 屋上の朝礼と日の出";
+const setTitleArt = (m) => {
+$("title-art").src = m === "black" ? TITLE_ART_BLACK : TITLE_ART;
+$("title-art").alt = m === "black" ? "社訓ドリブン ― 深夜のビル" : "社訓ドリブン ― 屋上の朝礼と日の出";
+};
+setTitleArt(savedMode);
 document.querySelectorAll(".mode-btn").forEach((b) => {
-const preview = () => { $("title-art").src = artFor(b.dataset.mode); };
+const preview = () => setTitleArt(b.dataset.mode);
 b.addEventListener("mouseenter", preview);
 b.addEventListener("focus", preview);
 });
-$("btn-mode-back").addEventListener("click", () => { $("title-art").src = artFor(savedMode); });
+$("btn-mode-back").addEventListener("click", () => setTitleArt(savedMode));
 injectIcons();
 show("title");
 $("btn-guide-close").addEventListener("click", () => {

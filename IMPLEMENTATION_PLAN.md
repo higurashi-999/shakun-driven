@@ -331,3 +331,9 @@ index.html / css / js/
 - app.js：exprOf（moodOf連動の表情）／portraitImgEl／ICONS＋injectIcons（data-icon 属性へSVG注入）／タイトル画像のモード連動とプレビュー／フェーズアップ演出（lastPhaseSeen）
 - CSS：キャラ絵レイアウト、紙目・ハーフトーン・斜め帯、stampIn／phaseFlash／bandIn アニメーション
 - 検証：scripts/check.sh 全通過（window 未定義のテスト環境差異を module 変数化で解消）
+
+## 第19節：M17.1（2026-11-10）
+- 採用画面の真っ白バグ（screen-hire の hidden クラス）を実ブラウザで再現・特定し修正。あわせて実サイト全体を点検し、新規ゲームへの月報漏れ、タイトル復帰時のメニュー状態、文字数カウンタ、前月比表記、タイトル画像altを修正
+- 怒り表情50枚（全25人×2モード）を追加生成・検証し、final/ は全200枚・640×800統一。portraits.js 再生成（約4.8MB）
+- exprOf を hp/faith 直接判定に変更（怒り＝信仰度40以下、悲しみ＝体力35以下）
+- イベント文面の金額と実効果額のずれは既存仕様として今回は未対応（文面の動的化が必要なため別途判断）
