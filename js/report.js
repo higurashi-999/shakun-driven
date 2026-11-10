@@ -48,20 +48,46 @@ export function splitHonne(raw) {
   // 本音は1文だけを抜き出す（文の途中に置かれても、後続の本文を巻き込まない）
   const after = raw.slice(idx + "【本音】".length);
   const m = after.match(/^[^。！？]*[。！？]/);
-  const honne = (m ? m[0] : after).trim();
+  // M19：文末の句読点まで届いていない本音は、途中で切れた断片なので表示しない
+  const honne = m ? m[0].trim() : "";
   const rest = (raw.slice(0, idx) + after.slice(m ? m[0].length : after.length)).trim();
   return { text: rest, honne };
 }
 
+// M19：月報として成立しているかの検証。指示文の反唱（エコー）や断片を弾く
+const NARRATION_HEADINGS = ["【見出し】", "【今月の数字】", "【出来事】", "【来月】"];
+const ECHO_PHRASES = ["素材にない", "素材に無い", "素材ログ", "厳守事項", "月報ライター", "作らないこと"];
+export function validateNarration(text) {
+  const t = String(text || "").trim();
+  if (t.length < 80) return false; // 断片は月報ではない
+  if (!looksComplete(t)) return false;
+  let pos = -1;
+  for (const h of NARRATION_HEADINGS) {
+    const i = t.indexOf(h);
+    if (i < 0 || i < pos) return false; // 4見出しが順番どおりに揃っていること
+    pos = i;
+  }
+  if (ECHO_PHRASES.some((p) => t.includes(p))) return false; // 指示文の反唱が混ざっていたら不合格
+  return true;
+}
+
 export async function narrateMonth(state, logLines, monthNo) {
   const prompt = buildNarrationPrompt(state, logLines, monthNo);
-  let out = splitHonne(String(await callLLM("main", prompt, { temperature: 0.7, maxOutputTokens: 900 })));
-  if (!looksComplete(out.text)) {
-    // 切断時は短く完結させる指示でもう一度だけ試す（再試行で本音が落ちたら、初回の本音を引き継ぐ）
-    const retryPrompt = prompt + "\n（注意：300字以内で、文の途中で切れないよう最後まで完結させてください）";
-    const retry = splitHonne(String(await callLLM("main", retryPrompt, { temperature: 0.7, maxOutputTokens: 900 })));
-    out = looksComplete(retry.text) ? { text: retry.text, honne: retry.honne || out.honne } : retry;
+  const clean = (raw) => {
+    const o = splitHonne(String(raw));
+    const start = o.text.indexOf("【見出し】");
+    if (start > 0) o.text = o.text.slice(start).trim(); // 見出しより前の前置きは落とす
+    // 本音が文として完結していない場合は付けない
+    if (o.honne && !looksComplete(o.honne)) o.honne = "";
+    return o;
+  };
+  let out = clean(await callLLM("main", prompt, { temperature: 0.7, maxOutputTokens: 900 }));
+  if (!validateNarration(out.text)) {
+    // 不合格（切断・形式崩れ・指示文の反唱）なら、完結を強く指示してもう一度だけ試す
+    const retryPrompt = prompt + "\n（注意：300字以内で、文の途中で切れないよう最後まで完結させてください。指示文を繰り返さず、月報の本文だけを書いてください）";
+    const retry = clean(await callLLM("main", retryPrompt, { temperature: 0.7, maxOutputTokens: 900 }));
+    out = validateNarration(retry.text) ? { text: retry.text, honne: retry.honne || out.honne } : retry;
   }
-  if (!looksComplete(out.text)) throw new Error("narration truncated");
+  if (!validateNarration(out.text)) throw new Error("narration invalid");
   return out;
 }

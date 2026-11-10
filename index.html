@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.32">
+<link rel="stylesheet" href="css/style.css?v=20261102.33">
 </head>
 <body>
 
@@ -107,10 +107,13 @@
     <div id="report-highlights" class="report-highlights hidden"></div>
     <p id="report-diff" class="report-diff hidden"></p>
     <pre id="week-report" class="preview">まだ月を進めていません。社訓を整えてから「月を進める」を押してください。</pre>
-    <details id="report-raw-wrap" class="hidden">
-      <summary>素材ログ（数値の記録）</summary>
-      <pre id="week-report-raw" class="preview"></pre>
-    </details>
+    <section id="report-record" class="report-record hidden">
+      <h4 class="record-title">今月の記録</h4>
+      <div id="record-grid" class="record-grid"></div>
+      <div id="record-phase" class="record-phase"></div>
+      <div id="record-ranks" class="record-ranks"></div>
+      <ul id="record-events" class="record-events"></ul>
+    </section>
     <div id="report-honne" class="report-honne hidden"><span class="honne-label">社員の本音</span><span id="report-honne-text"></span></div>
     <div id="report-mood" class="mood-strip hidden"></div>
   </div>
@@ -295,6 +298,6 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.32"></script>
+<script type="module" src="js/app.js?v=20261102.33"></script>
 </body>
 </html>

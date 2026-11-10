@@ -349,3 +349,9 @@ index.html / css / js/
 - sim.js の収支再編：直接の lastSales を押し上げなしの素の売上に変更（会社の売上・資金推移は不変）。lastContrib／lastBurden を新設し、純額＝貢献−負担に統一。間接には lastSupport（押し上げ率の寄与、小数3桁）と lastRiskCut を付与。月報素材のトップ／ワースト行を部門別・貢献額基準に変更
 - app.js の表示：社員カードと1on1情報行を「純額（会社貢献／会社負担）＋内訳」に再構成し、間接社員には金額以外の効果（個人按分）の行を追加。contribOf／burdenOf を新設し旧セーブ実績の表示にも対応
 - 検証：scripts/check.sh 全通過。数値実測で直接の売上に押し上げが含まれないこと、会社の売上が押し上げ込みで維持されること、押し上げ率表示が15.0%と月報素材と一致することを確認
+
+## 第22節：M19（2026-11-10）
+- report.js：validateNarration を新設（4見出しの順序・最低長・指示文反唱の語句リストで検証）。narrateMonth は見出し前を切り落とし、本音の完結チェックを追加し、不合格時は再生成→なお不合格なら例外（呼び出し側は記録パネルのみ表示）。splitHonne は句読点まで届かない本音を空に変更
+- sim.js：simulateMonth が lastSummary（売上・費用・収支・資金・押し上げ・全員の貢献と負担・人数・平均値・評判・期の進捗）を状態に残す
+- app.js／index.html／CSS：素材ログの details＋pre を廃止し、「今月の記録」パネル（record-grid／record-phase／record-ranks／record-events）を新設。出来事リストは機械的な集計行を除外して描き、HTMLエスケープを通す
+- テスト：report.test に validateNarration と切れた本音のケース、sim.test に lastSummary の検証を追加。全チェック通過

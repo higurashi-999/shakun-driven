@@ -301,6 +301,18 @@ export function simulateMonth(state, ctx) {
   next.phaseMonth = (next.phaseMonth || 1);
   const salesDone = next.phaseSales >= phaseDef.salesTarget;
   log.push(`今期の売上：累計 ${Math.round(next.phaseSales)}万円／目標 ${phaseDef.salesTarget}万円（${phaseDef.name}）`);
+  // M19：月報の「今月の記録」パネル用に、構造化サマリを状態へ残す（生ログの表示は廃止）
+  next.lastSummary = {
+    month,
+    sales: Math.round(sales), cost: Math.round(cost), profit: Math.round(profit), funds: Math.round(next.funds),
+    uplift: Math.round(upliftTotal), supportRate,
+    contribs: emps.map((e) => ({ name: e.name, dept: e.dept || "direct", contrib: e.lastContrib, burden: e.lastBurden, profit: e.lastProfit })),
+    directCount: dept.direct.length, indirectCount: dept.indirect.length,
+    avgFaith: next.employees.length ? Math.round(avg(next.employees, "faith")) : 0,
+    avgHp: next.employees.length ? Math.round(avg(next.employees, "hp")) : 0,
+    reputation: Math.round(next.reputation),
+    phaseName: phaseDef.name, phaseSales: Math.round(next.phaseSales), phaseTarget: phaseDef.salesTarget,
+  };
   if (next.funds < 0) {
     next.status = "bankrupt";
     log.push("💸 資金が枯渇しました。会社は倒産です。");

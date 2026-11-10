@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.32";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.32";
+} from "./store.js?v=20261102.33";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.33";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.32";
-import { extractRule} from "./extract.js?v=20261102.32";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.32";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.32";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.32";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.32";
-import { narrateMonth } from "./report.js?v=20261102.32";
+} from "./ledger.js?v=20261102.33";
+import { extractRule} from "./extract.js?v=20261102.33";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.33";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.33";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.33";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.33";
+import { narrateMonth } from "./report.js?v=20261102.33";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.32";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.32";
-import { portraitUri } from "./portraits.js?v=20261102.32";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.33";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.33";
+import { portraitUri } from "./portraits.js?v=20261102.33";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -206,6 +206,50 @@ return (e.dept || "direct") === "direct" ? (e.lastSales || 0) : (e.lastUplift ||
 }
 function burdenOf(e) {
 return e.lastBurden != null ? e.lastBurden : (e.lastCost || 0);
+}
+
+// M19：今月の記録パネル（生ログの羅列は廃止し、構造化サマリ＋出来事リストで見せる）
+const RECORD_MECHANICAL = [/^― 第\d+月 ―$/, /^売上 .*万円／費用/, /^🤝 間接部門のサポートで/, /^今月の貢献：/, /^今期の売上：/, /^社員 \d+人（直接/];
+function renderRecord() {
+const wrap = $("report-record");
+if (!wrap) return;
+const has = !!(state && state.lastReport);
+wrap.classList.toggle("hidden", !has);
+if (!has) return;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const s = state.lastSummary;
+const grid = $("record-grid");
+grid.innerHTML = "";
+if (s) {
+const cell = (label, value, neg = false) => `<div class="record-cell"><span class="record-label">${label}</span><span class="record-value${neg ? " neg" : ""}">${value}</span></div>`;
+const man = (v) => `${Math.round(v).toLocaleString("ja-JP")}万円`;
+grid.innerHTML =
+cell("売上", man(s.sales)) +
+cell("費用", man(s.cost)) +
+cell("収支", `${s.profit >= 0 ? "+" : ""}${man(s.profit)}`, s.profit < 0) +
+cell("資金残高", man(s.funds)) +
+(s.uplift > 0 ? cell("間接の押し上げ", `+${man(s.uplift)}`) : "") +
+cell("社員", `${s.directCount + s.indirectCount}人（直接${s.directCount}・間接${s.indirectCount}）`) +
+cell("平均信仰度", `${s.avgFaith}`) +
+cell("平均体力", `${s.avgHp}`) +
+cell("評判", `${s.reputation}`);
+const pct = s.phaseTarget ? Math.min(100, Math.round((s.phaseSales / s.phaseTarget) * 100)) : 0;
+$("record-phase").innerHTML = `<span>${esc(s.phaseName)}の売上目標：累計 ${s.phaseSales.toLocaleString("ja-JP")}万円／${s.phaseTarget.toLocaleString("ja-JP")}万円（${pct}%）</span><span class="record-bar"><i style="width:${pct}%"></i></span>`;
+const rankRows = [];
+for (const [dept, label] of [["direct", "直接部門"], ["indirect", "間接部門"]]) {
+const list = (s.contribs || []).filter((c) => c.dept === dept && c.contrib != null).sort((a, b) => b.contrib - a.contrib);
+if (!list.length) continue;
+let row = `${label}トップ：${esc(list[0].name)}（貢献 ${man(list[0].contrib)}）`;
+if (list.length >= 2) row += `／ワースト：${esc(list[list.length - 1].name)}（貢献 ${man(list[list.length - 1].contrib)}）`;
+rankRows.push(`<div>${row}</div>`);
+}
+$("record-ranks").innerHTML = rankRows.length ? "<strong>部門別の貢献</strong>" + rankRows.join("") : "";
+} else {
+$("record-phase").innerHTML = "";
+$("record-ranks").innerHTML = "";
+}
+const events = (state.lastReport || []).filter((l) => !RECORD_MECHANICAL.some((re) => re.test(l)));
+$("record-events").innerHTML = events.map((l) => `<li>${esc(l)}</li>`).join("");
 }
 
 function renderOffice() {
@@ -421,17 +465,14 @@ $("report-diff").classList.toggle("hidden", !parts.length);
 } else $("report-diff").classList.add("hidden");
 if (state.reportText) {
 $("week-report").textContent = state.reportText;
-$("week-report-raw").textContent = (state.lastReport || []).join("\n");
-$("report-raw-wrap").classList.remove("hidden");
 } else if (state.lastReport) {
-$("week-report").textContent = state.lastReport.join("\n");
-$("report-raw-wrap").classList.add("hidden");
+// M19：文章が生成できなかった月は生ログを出さず、記録パネルへ案内する
+$("week-report").textContent = "（今月の月報の文章は生成できませんでした。数字と出来事は下の「今月の記録」をご覧ください）";
 } else {
 // M17.1：新規ゲームでは前セーブの月報表示を残さない
 $("week-report").textContent = "まだ月を進めていません。社訓を整えてから「月を進める」を押してください。";
-$("week-report-raw").textContent = "";
-$("report-raw-wrap").classList.add("hidden");
 }
+renderRecord();
 const hasReport = !!(state.reportText || state.lastReport);
 $("report-masthead").classList.toggle("hidden", !hasReport);
 if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.month - 1)}号 ― 第${Math.max(1, state.month - 1)}月の月報`;
