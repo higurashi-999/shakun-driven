@@ -355,3 +355,4 @@ index.html / css / js/
 - sim.js：simulateMonth が lastSummary（売上・費用・収支・資金・押し上げ・全員の貢献と負担・人数・平均値・評判・期の進捗）を状態に残す
 - app.js／index.html／CSS：素材ログの details＋pre を廃止し、「今月の記録」パネル（record-grid／record-phase／record-ranks／record-events）を新設。出来事リストは機械的な集計行を除外して描き、HTMLエスケープを通す
 - テスト：report.test に validateNarration と切れた本音のケース、sim.test に lastSummary の検証を追加。全チェック通過
+- M19.1：実サイト確認で、記録パネルの資金・評判・平均値がイベント適用前の値になる食い違いを発見。app.js に refreshSummary を追加し、イベント解決・融資審査・上場審査の直後に lastSummary の変動項目（資金・評判・平均信仰・平均体力）を現在値へ更新する

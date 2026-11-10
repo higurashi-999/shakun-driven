@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.33";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.33";
+} from "./store.js?v=20261102.34";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.34";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.33";
-import { extractRule} from "./extract.js?v=20261102.33";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.33";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.33";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.33";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.33";
-import { narrateMonth } from "./report.js?v=20261102.33";
+} from "./ledger.js?v=20261102.34";
+import { extractRule} from "./extract.js?v=20261102.34";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.34";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.34";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.34";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.34";
+import { narrateMonth } from "./report.js?v=20261102.34";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.33";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.33";
-import { portraitUri } from "./portraits.js?v=20261102.33";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.34";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.34";
+import { portraitUri } from "./portraits.js?v=20261102.34";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -206,6 +206,17 @@ return (e.dept || "direct") === "direct" ? (e.lastSales || 0) : (e.lastUplift ||
 }
 function burdenOf(e) {
 return e.lastBurden != null ? e.lastBurden : (e.lastCost || 0);
+}
+
+// M19.1：月末のイベント・融資・上場審査で資金や評判が動いたら、記録パネルの変動項目を現在値に合わせる
+function refreshSummary() {
+if (!state || !state.lastSummary || !state.employees) return;
+state.lastSummary.funds = Math.round(state.funds);
+state.lastSummary.reputation = Math.round(state.reputation);
+if (state.employees.length) {
+state.lastSummary.avgFaith = Math.round(state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length);
+state.lastSummary.avgHp = Math.round(state.employees.reduce((a, e) => a + e.hp, 0) / state.employees.length);
+}
 }
 
 // M19：今月の記録パネル（生ログの羅列は廃止し、構造化サマリ＋出来事リストで見せる）
@@ -651,6 +662,7 @@ btn.textContent = "この内容で対応する";
 const res = resolveEvent(state, ev, action, effectsMap(), aiJudge);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
+refreshSummary();
 if (state.currentEvent && state.currentEvent.milestone === "shareholders") state.afterEvent = "listing";
 state.currentEvent = null;
 saveState(state);
@@ -712,6 +724,7 @@ if (!state || state.loanDone) return;
 const res = judgeLoan(state, effectsMap());
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
+refreshSummary();
 saveState(state);
 $("loan-result").textContent = res.lines.join("\n");
 if (state.loanResult) renderLoanDetail(state.loanResult);
@@ -793,6 +806,7 @@ if (!state || state.listingResult) return;
 const res = judgeListing(state);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), res.result.passed ? "🎉 上場審査に合格しました。" : "📋 上場審査は不合格でした。"];
+refreshSummary();
 saveState(state);
 renderListing();
 }
