@@ -13,7 +13,6 @@ export function defaultState(mode = null) {
     funds: mode === "black" ? 5200 : 4300, // 万円（月次スケール、M14。ブラックは初期資金に余裕がある）
     employees: [], // M2で初期社員を投入
     ledger: [], // 社訓台帳（M1）
-    glossary: [], // 造語辞典（M1）
     risk: 0, // 告発リスク蓄積
     reputation: mode === "black" ? 40 : 55, // 評判 0〜100（M2／初期値はモードで異なる）
     status: "playing", // playing | bankrupt | empty | cleared（M2）

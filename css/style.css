@@ -200,8 +200,6 @@ body[data-mode="black"] .card { box-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 1
 .status-bar { border-bottom: 3px double rgba(243, 239, 230, .35); }
 .report-masthead { font-family: var(--font-head); text-align: center; letter-spacing: .18em; border-top: 4px double var(--sub); border-bottom: 4px double var(--sub); padding: 6px 0; margin-bottom: 10px; }
 .decision-stamp { font-family: var(--font-head); font-size: 30px; letter-spacing: .35em; color: var(--accent); border: 3px solid var(--accent); border-radius: 10px; display: inline-block; padding: 4px 14px 4px 20px; transform: rotate(-7deg); margin: 4px 0 12px; opacity: .9; }
-#gl-list .card { border-left: 5px solid var(--accent2); }
-#gl-list .card strong { font-family: var(--font-head); }
 
 /* === M8.2 社員の様子ストリップ === */
 .mood-strip { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

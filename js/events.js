@@ -166,7 +166,6 @@ success: { funds: 85, reputation: 7, fatigueAll: 0, faithAll: 4, risk: 0},
 fail: { funds: 0, reputation: -6, fatigueAll: 0, faithAll: -3, risk: 2},
 successText: "理念の本気度が伝わり、好意的な注目と問い合わせが増えました。",
 failText: "「カルト的」という側面だけが広がり、評判を落としました。",
-glossaryAmplify: true, // 造語が多いほど賛否の振れ幅が大きくなる
 },
 {
 id: "ev-bank-concern",
@@ -236,7 +235,7 @@ return text.replace(/[\d,]+万円/, `${Math.abs(effects.funds).toLocaleString("j
 // 対応の判定と効果適用（純粋関数）。
 // action: {type:"respond", text} | {type:"ignore"}
 // effects: 台帳の効果集計（{sales: 値, ...} の5項目マップ）
-export function resolveEvent(state, event, action, ledgerFx, glossaryCount = 0, aiJudge = null) {
+export function resolveEvent(state, event, action, ledgerFx, aiJudge = null) {
 const next = structuredClone(state);
 const lines = [`${event.title}`];
 let grade;
@@ -274,12 +273,6 @@ lines.push(`対応の社長命令：${action.text || "（文面なし）"}`);
 if (aiJudge) lines.push(`AI判定：${aiJudge.rationale}（関連性 ${aiJudge.relevance}/2、具体性 ${aiJudge.specificity}/2、台帳整合性 ${aiJudge.consistency > 0 ? "あり" : aiJudge.consistency < 0 ? "矛盾あり" : "中立"}、スコア ${Math.round(score * 10) / 10}）`);
 lines.push(outcomeText(grade === "失敗" ? event.failText : event.successText, effects));
 if (grade === "部分成功") lines.push("ただし備えが十分ではなく、効果は限定的でした。");
-}
-// 造語が多い会社ほど評判イベントの振れ幅が大きい
-if (event.glossaryAmplify && glossaryCount >= 2) {
-effects.reputation = Math.round((effects.reputation || 0) * 1.5);
-effects.faithAll = Math.round((effects.faithAll || 0) * 1.5);
-lines.push(`造語の多い社風が話題性を増幅しました（造語 ${glossaryCount} 件）。`);
 }
 next.funds = Math.round((next.funds + (effects.funds || 0)) * 10) / 10;
 next.reputation = clamp(next.reputation + (effects.reputation || 0), 0, 100);

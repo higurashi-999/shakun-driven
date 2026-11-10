@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.31";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.31";
+} from "./store.js?v=20261102.32";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.32";
 import {
 registerRule,
 abolishRule,
@@ -20,17 +20,17 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.31";
-import { extractRule} from "./extract.js?v=20261102.31";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.31";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.31";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.31";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.31";
-import { narrateMonth } from "./report.js?v=20261102.31";
+} from "./ledger.js?v=20261102.32";
+import { extractRule} from "./extract.js?v=20261102.32";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.32";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.32";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.32";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.32";
+import { narrateMonth } from "./report.js?v=20261102.32";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.31";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.31";
-import { portraitUri } from "./portraits.js?v=20261102.31";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.32";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.32";
+import { portraitUri } from "./portraits.js?v=20261102.32";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -112,8 +112,11 @@ if (e.hiredMonth == null) { e.hiredMonth = e.hiredWeek ?? 1; changed = true; }
 if (!e.dept) { e.dept = e.id === "emp-4" ? "indirect" : "direct"; changed = true; }
 if (!e.role) { e.role = (e.id === "emp-1" || e.id === "emp-4") ? "manager" : "member"; changed = true; }
 }
+// M18：月報の世代（どの月の月報か）。無いセーブは「先月分が表示中」とみなす
+if (state.reportMonth == null) { state.reportMonth = state.lastReport ? Math.max(0, (state.month || 1) - 1) : 0; changed = true; }
 for (const r of state.ledger || []) if (r.createdMonth == null && r.createdWeek != null) { r.createdMonth = r.createdWeek; changed = true; }
-for (const g of state.glossary || []) if (g.createdMonth == null && g.createdWeek != null) { g.createdMonth = g.createdWeek; changed = true; }
+// M18：造語の概念を廃止。旧セーブの造語データは破棄する
+if ("glossary" in state) { delete state.glossary; changed = true; }
 // M13：旧タグ形式の社訓は、効果を持つ社訓として読み替えず、効果なし（要・再登録）として扱う（aggregateEffects が読み飛ばす）
 // M11：1on1セッションは週をまたいだら閉じる
 if (state.oneOnOne && state.oneOnOne.month !== state.month) { state.oneOnOne = null; changed = true; }
@@ -196,6 +199,15 @@ avgHp: Math.round((s.employees.reduce((a, e) => a + e.hp, 0) / n) * 10) / 10,
 reputation: s.reputation, risk: s.risk,
 };
 }
+// M18：会社貢献額／会社負担額（旧セーブの実績には新フィールドが無いため内訳から復元する）
+function contribOf(e) {
+if (e.lastContrib != null) return e.lastContrib;
+return (e.dept || "direct") === "direct" ? (e.lastSales || 0) : (e.lastUplift || 0) + (e.lastSaving || 0);
+}
+function burdenOf(e) {
+return e.lastBurden != null ? e.lastBurden : (e.lastCost || 0);
+}
+
 function renderOffice() {
 if (!state) return;
 migrateState();
@@ -245,7 +257,7 @@ const topFx = Object.entries(aggFx)
 .slice(0, 3)
 .map(([k, v]) => `${AXIS_LABEL[k]} ${v > 0 ? "+" : "−"}${Math.abs(v)}`);
 $("ledger-summary").textContent =
-`有効な社訓 ${active.length} 件／造語 ${state.glossary.length} 件` +
+`有効な社訓 ${active.length} 件` +
 (topFx.length? `／主な効果：${topFx.join("、")}`: "");
 // 目標パネル（M6）
 {
@@ -343,24 +355,29 @@ const prof = document.createElement("p");
 prof.className = "emp-profit";
 if (e.lastProfit != null) {
 const sign = e.lastProfit >= 0 ? "+" : "";
-prof.innerHTML = `先月の収支貢献：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>`;
+prof.innerHTML = `先月の純額：<strong class="${e.lastProfit < 0 ? "neg" : ""}">${sign}${Math.round(e.lastProfit)}万円</strong>（会社貢献 ${Math.round(contribOf(e))}万円／会社負担 ${Math.round(burdenOf(e))}万円）`;
 const detail = document.createElement("p");
 detail.className = "emp-profit-detail";
 const salDisp = Math.round(e.lastSalary ?? salaryOf(e, state.month));
 const otherDisp = Math.round(e.lastOtherCost ?? Math.max(0, (e.lastCost ?? salDisp) - salDisp));
 if ((e.dept || "direct") === "direct") {
-const boost = Math.round(e.lastBoost || 0);
-detail.innerHTML = `<span class="chunk">売上 ${Math.round(e.lastSales)}万円${boost > 0 ? `（うち間接の押し上げ +${boost}万円）` : ""}</span>−<span class="chunk">人件費 ${salDisp}万円</span>−<span class="chunk">1人あたり固定費 ${otherDisp}万円</span>`;
+detail.innerHTML = `<span class="chunk">貢献：売上 ${Math.round(e.lastSales)}万円</span>／<span class="chunk">負担：人件費 ${salDisp}万円＋1人あたり固定費 ${otherDisp}万円</span>`;
 } else {
-detail.innerHTML = `<span class="chunk">直接部門貢献 ${Math.round(e.lastUplift || 0)}万円</span>＋<span class="chunk">コストダウン ${Math.round(e.lastSaving)}万円</span>−<span class="chunk">人件費 ${salDisp}万円</span>−<span class="chunk">1人あたり固定費 ${otherDisp}万円</span>`;
+detail.innerHTML = `<span class="chunk">貢献：直接部門貢献 ${Math.round(e.lastUplift || 0)}万円＋コストダウン ${Math.round(e.lastSaving)}万円</span>／<span class="chunk">負担：人件費 ${salDisp}万円＋1人あたり固定費 ${otherDisp}万円</span>`;
 }
 card.appendChild(prof);
 card.appendChild(detail);
+if ((e.dept || "direct") === "indirect" && e.lastSupport != null) {
+const fx = document.createElement("p");
+fx.className = "emp-profit-detail";
+fx.innerHTML = `<span class="chunk">金額以外の効果（個人按分）：売上押し上げ +${(e.lastSupport * 100).toFixed(1)}%</span>／<span class="chunk">告発リスク抑制 −${e.lastRiskCut}</span>`;
+card.appendChild(fx);
+}
 } else if (e.hiredMonth != null && e.hiredMonth >= state.month) {
 prof.textContent = "今月入社したばかりです（収支の実績は来月から出ます）";
 card.appendChild(prof);
 } else {
-prof.textContent = "先月の収支貢献：―（月を進めると実績が出ます）";
+prof.textContent = "先月の純額：―（月を進めると実績が出ます）";
 card.appendChild(prof);
 }
 if (state.mode!== "black" && dangerOf(e) >= 1) {
@@ -471,13 +488,14 @@ migrateState();
 const processedMonth = state.month;
 const ctx = {
 effects: aggregateEffects(state.ledger),
-glossary: state.glossary.length,
 };
 state.prevSnapshot = snapshotOf(state);
 const out = simulateMonth(state, ctx);
 state = out.state;
 state.lastReport = out.log;
 state.reportText = null;
+state.reportHonne = ""; // M18：前月の本音が新しい月の月報に残らないよう、本文と一緒にリセットする
+state.reportMonth = processedMonth;
 saveState(state);
 if (state.status!== "playing") {
 show("result");
@@ -541,7 +559,8 @@ show("office");
 const monthNo = state.month - 1;
 const logSnapshot = state.lastReport;
 narrateMonth(state, logSnapshot, monthNo).then((res) => {
-if (res && res.text && state.lastReport === logSnapshot) {
+// M18：同じ月の月報であれば、生成中に1on1等で素材ログへ追記があっても反映する
+if (res && res.text && state.reportMonth === monthNo) {
 state.reportText = res.text;
 state.reportHonne = res.honne || "";
 saveState(state);
@@ -588,7 +607,7 @@ aiJudge = parseEventJudgeResult(raw);
 btn.disabled = false;
 btn.textContent = "この内容で対応する";
 }
-const res = resolveEvent(state, ev, action, effectsMap(), state.glossary.length, aiJudge);
+const res = resolveEvent(state, ev, action, effectsMap(), aiJudge);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
 if (state.currentEvent && state.currentEvent.milestone === "shareholders") state.afterEvent = "listing";
@@ -830,7 +849,7 @@ small.textContent = `${ch.profile}（${stateLine}）`;
 btn.appendChild(small);
 const small2 = document.createElement("small");
 const f5 = Math.min(5, Math.max(0, Math.ceil(e.ability / 2)));
-small2.textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／${e.lastProfit != null ? `先月の収支貢献 ${e.lastProfit >= 0 ? "+" : ""}${Math.round(e.lastProfit)}万円` : "先月の収支貢献 ―"}`;
+small2.textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／${e.lastProfit != null ? `先月の純額 ${e.lastProfit >= 0 ? "+" : ""}${Math.round(e.lastProfit)}万円` : "先月の純額 ―"}`;
 btn.appendChild(small2);
 btn.addEventListener("click", () => startOneOnOne(e.id));
 picker.appendChild(btn);
@@ -842,7 +861,7 @@ $("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
 { const ivp = $("iv-portrait"); if (ivp) { const lastEmp = [...session.log].reverse().find((h) => h.who === "emp"); const uri = emp ? portraitUri(emp, state.mode, (lastEmp && lastEmp.expr) || exprOf(emp)) : null; ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); } }
 if (emp) {
 const f5 = Math.min(5, Math.max(0, Math.ceil(emp.ability / 2)));
-$("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の収支貢献 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（${(emp.dept || "direct") === "direct" ? `売上 ${Math.round(emp.lastSales)}` : `直接部門貢献 ${Math.round(emp.lastUplift || 0)}＋コストダウン ${Math.round(emp.lastSaving)}`}−人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}−1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}）` : "先月の収支貢献 ―"}`;
+$("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の純額 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（会社貢献 ${Math.round(contribOf(emp))}万円［${(emp.dept || "direct") === "direct" ? `売上 ${Math.round(emp.lastSales)}` : `直接部門貢献 ${Math.round(emp.lastUplift || 0)}＋コストダウン ${Math.round(emp.lastSaving)}`}］／会社負担 ${Math.round(burdenOf(emp))}万円［人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}＋1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}］）` : "先月の純額 ―"}`;
 }
 $("iv-turns").textContent = session.done ? "" : `往復 ${session.turns}／${ONE_ON_ONE_MAX_TURNS}`;
 const log = $("iv-log");
@@ -1165,40 +1184,6 @@ card.appendChild(btn);
 }
 list.appendChild(card);
 }
-const gl = $("gl-list");
-gl.innerHTML = "";
-if (!state.glossary.length) {
-gl.innerHTML = '<p class="note">造語はまだありません。</p>';
-}
-state.glossary.forEach((g, i) => {
-const row = document.createElement("div");
-row.className = "card";
-const p = document.createElement("p");
-p.textContent = `【${g.term}】${g.definition}`;
-row.appendChild(p);
-const btn = document.createElement("button");
-btn.className = "secondary";
-btn.textContent = "削除";
-btn.addEventListener("click", () => {
-state.glossary.splice(i, 1);
-saveState(state);
-renderLedger();
-});
-row.appendChild(btn);
-gl.appendChild(row);
-});
-}
-
-function onGlossaryAdd() {
-if (!requireState()) return;
-const term = $("gl-term").value.trim();
-const definition = $("gl-def").value.trim();
-if (!term ||!definition) return;
-state.glossary.push({ term, definition, createdMonth: state.month});
-saveState(state);
-$("gl-term").value = "";
-$("gl-def").value = "";
-renderLedger();
 }
 
 /* ---------- タイトル画面 ---------- */
@@ -1323,7 +1308,7 @@ chip.addEventListener("click", () => { $("ed-text").value = chip.dataset.ex || "
 $("btn-extract").addEventListener("click", onExtract);
 $("ed-text").addEventListener("input", updateCharCount);
 $("btn-register").addEventListener("click", onRegister);
-$("btn-gl-add").addEventListener("click", onGlossaryAdd);
+
 
 const savedMode = state && state.mode ? state.mode : null;
 const setTitleArt = (m) => {

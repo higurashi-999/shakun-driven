@@ -341,3 +341,11 @@ index.html / css / js/
 ## 第20節：M17.2（2026-11-10）
 - events.js の resolveEvent に outcomeText を追加し、結果文の金額を適用後金額へ差し替え（静観0.7倍・部分成功の平均で文面と結果が一致）。ev-late-payment の成功文から固定金額を外した。検証：静観の誤送信は文面59万円＝適用-59万円、部分成功の大口案件は文面98万円＝適用+98万円
 - 1on1：session に initialPoints を追加し、発言ごとに expr（表情）を記録。renderInterview のログ描画をLINE風（アバター＋吹き出し）に再構成し、ヘッダー画像も直近の表情に追従。CSSに .chat-bubble／.chat-av を追加
+- 回帰テスト tests/smoke-interview.test.mjs を追加（M17.3、ビルド.31）
+
+## 第21節：M18（2026-11-10）
+- 造語の完全撤去：store.js の glossary フィールド、app.js の辞典UI・件数表示・ctx、index.html の辞典セクション、sim.js の評判ペナルティと信仰目標への加算、events.js の glossaryAmplify と resolveEvent の引数、report.js の月報プロンプトを全て削除。resolveEvent の引数順変更に伴いテスト側の呼び出しも追随
+- 本音バグ修正：report.js の splitHonne を1文限定の切り出しに、narrateMonth の再試行で本音を引き継ぐ。app.js の onAdvance で reportHonne をリセットし reportMonth を保持、finishWeek の反映条件を reportMonth 一致に変更、旧セーブには reportMonth を補完
+- sim.js の収支再編：直接の lastSales を押し上げなしの素の売上に変更（会社の売上・資金推移は不変）。lastContrib／lastBurden を新設し、純額＝貢献−負担に統一。間接には lastSupport（押し上げ率の寄与、小数3桁）と lastRiskCut を付与。月報素材のトップ／ワースト行を部門別・貢献額基準に変更
+- app.js の表示：社員カードと1on1情報行を「純額（会社貢献／会社負担）＋内訳」に再構成し、間接社員には金額以外の効果（個人按分）の行を追加。contribOf／burdenOf を新設し旧セーブ実績の表示にも対応
+- 検証：scripts/check.sh 全通過。数値実測で直接の売上に押し上げが含まれないこと、会社の売上が押し上げ込みで維持されること、押し上げ率表示が15.0%と月報素材と一致することを確認

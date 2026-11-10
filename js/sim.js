@@ -85,7 +85,7 @@ function avg(list, key) {
   return list.reduce((s, e) => s + e[key], 0) / list.length;
 }
 
-// ctx: { effects: aggregateEffectsの結果（5項目）, glossary: 造語数 }（M13：効果は5項目モデル。M12で矛盾は廃止）
+// ctx: { effects: aggregateEffectsの結果（5項目） }（M13：効果は5項目モデル。M12で矛盾は廃止、M18で造語は廃止）
 export function simulateMonth(state, ctx) {
   if (state.status !== "playing") {
     return { state, log: ["すでに終了しています。"] };
@@ -146,32 +146,36 @@ export function simulateMonth(state, ctx) {
     const hpF = e.hp <= 10 ? 0.55 : e.hp <= 20 ? 0.75 : 1;
     const isDirect = (e.dept || "direct") === "direct";
     const baseSalesI = isDirect ? e.ability * PARAMS.salesPerAbility * companyFactor * faithF * hpF * noise * challengeMult * deptSalesFactor : 0;
-    // 押し上げは直接の売上に織り込む（間接が空なら−15%）
+    // 会社の売上には押し上げを織り込む（間接が空なら−15%）。ただし直接個人の売上には含めず、押し上げは間接の貢献に帰属させる（M18）
     const salesI = isDirect ? baseSalesI * (dept.indirect.length ? 1 + supportRate : 0.85) : 0;
     const upliftI = isDirect ? baseSalesI * supportRate : 0;
     const savingI = savingTotal * (weightOf(e) / weightSum);
     const salaryI = salaryOf(e, month);
     const costI = salaryI + fixedEffective / headCount + extrasTotal / headCount;
-    e.lastSales = round1(salesI);
-    e.lastBoost = round1(upliftI); // 直接のみ：売上のうち間接の押し上げ分（併記用）
+    e.lastSales = round1(baseSalesI); // M18：直接の売上は押し上げを含まない
     e.lastUplift = 0; // 間接のみ：自分が押し上げた売上分（このあと配分する）
     e.lastSaving = isDirect ? 0 : round1(savingI); // M15：コストダウンの帰属は間接部門だけに付ける
     e.lastCost = round1(costI);
     e.lastSalary = salaryI; // 人件費の内訳表示用
     e.lastOtherCost = round1(costI - salaryI); // 1人あたり固定費（固定費＋追加費用の按分）
-    e.lastProfit = round1(salesI + savingI - costI); // 間接は次のパスで付け替える
+    // M18：会社貢献額と会社負担額を分離する（純額は次のパスで確定）
+    e.lastContrib = round1(isDirect ? baseSalesI : 0);
+    e.lastBurden = round1(costI);
+    e.lastSupport = 0; // 間接のみ：押し上げ率の個人按分（次のパスで付ける）
+    e.lastRiskCut = 0; // 間接のみ：告発リスク抑制の個人按分（次のパスで付ける）
     upliftTotal += upliftI;
     sales += salesI;
     cost += costI - savingI;
   }
-  // 間接部門の収支：売上を「直接部門貢献（押し上げ分）＋コストダウン」に置き換える（M15）
+  // 間接部門の貢献：押し上げ分＋コストダウン（M15→M18）。純額＝貢献−負担で全員統一
   for (const e of emps) {
     if ((e.dept || "direct") === "indirect") {
       e.lastUplift = round1(upliftTotal * (e.ability / indirectAbilitySum));
-      e.lastProfit = round1(e.lastUplift + e.lastSaving - e.lastCost);
-    } else {
-      e.lastProfit = round1(e.lastSales - e.lastCost);
+      e.lastContrib = round1(e.lastUplift + e.lastSaving);
+      e.lastSupport = Math.round(supportRate * (e.ability / indirectAbilitySum) * 1000) / 1000; // 押し上げ率の寄与（割合。%表示の精度のため小数3桁まで保持）
+      e.lastRiskCut = dept.indirectManager ? 1 : 0.5; // リスク抑制は人数分を等分（責任者がいると1人あたり1.0、いないと0.5）
     }
+    e.lastProfit = round1(e.lastContrib - e.lastBurden);
   }
   sales = round1(sales);
   cost = round1(cost);
@@ -184,11 +188,16 @@ export function simulateMonth(state, ctx) {
   if (dept.indirect.length === 0) log.push("🚨 間接部門に誰もいません。直接部門の売上が伸び悩み（−15%）、管理不在で固定費が膨らみ、リスクと評判にも傷がつきました。至急、間接部門の人材を雇ってください。");
   if (dept.direct.length > 0 && !dept.directManager) log.push("⚠ 直接部門に責任者がいません。売上が伸び悩みます。社員を責任者に任命してください。");
   if (dept.indirect.length > 0 && !dept.indirectManager) log.push("⚠ 間接部門に責任者がいません。管理の効きが弱まります。社員を責任者に任命してください。");
-  if (emps.length >= 2) {
-    const sorted = [...emps].sort((a, b) => b.lastProfit - a.lastProfit);
-    const fmt = (v) => `${v >= 0 ? "+" : ""}${Math.round(v)}万円`;
-    log.push(`今月の収支貢献：トップは ${sorted[0].name}（${fmt(sorted[0].lastProfit)}）、ワーストは ${sorted[sorted.length - 1].name}（${fmt(sorted[sorted.length - 1].lastProfit)}）`);
-  }
+  // M18：トップ／ワーストは部門別に、貢献額で判定する
+  const deptRankLine = (list, label) => {
+    if (!list.length) return null;
+    const sorted = [...list].sort((a, b) => b.lastContrib - a.lastContrib);
+    let s = `${label}トップは ${sorted[0].name}（貢献 ${Math.round(sorted[0].lastContrib)}万円）`;
+    if (sorted.length >= 2) s += `、ワーストは ${sorted[sorted.length - 1].name}（貢献 ${Math.round(sorted[sorted.length - 1].lastContrib)}万円）`;
+    return s;
+  };
+  const rankParts = [deptRankLine(dept.direct, "直接部門"), deptRankLine(dept.indirect, "間接部門")].filter(Boolean);
+  if (rankParts.length) log.push(`今月の貢献：${rankParts.join("／")}`);
 
   /* 社員の状態変化（体力ゲージと信仰度の2軸） */
   // 人数不足の負担：適正人数に足りない分だけ、体力の減りが重くなる（M13→M14：適正3人）
@@ -217,8 +226,7 @@ export function simulateMonth(state, ctx) {
     // 信仰度：信仰向上の社訓で育ち、売上偏重で少しずつ蝕まれる
     let faithTarget =
       50 +
-      5 * eff("faith") +
-      Math.min(5, (ctx.glossary || 0) * 1) -
+      5 * eff("faith") -
       1.1 * eff("sales");
     if (e.hp <= 15) faithTarget -= 10;
     else if (e.hp <= 30) faithTarget -= 6;
@@ -239,7 +247,7 @@ export function simulateMonth(state, ctx) {
   }
 
   /* 評判 */
-  let repDelta = 0.85 * eff("rep") + (50 - next.reputation) * 0.05 - Math.min(2, (ctx.glossary || 0) * 0.2);
+  let repDelta = 0.85 * eff("rep") + (50 - next.reputation) * 0.05;
   if (avg(emps, "faith") < 40) repDelta -= 1.5;
   if (dept.direct.length === 0) repDelta -= 3;
   if (dept.indirect.length === 0) repDelta -= 4;

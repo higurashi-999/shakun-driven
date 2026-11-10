@@ -4,8 +4,8 @@
 // M14：初期メンバーは2人（直接部門の責任者＋間接部門の責任者）。残りの3人は採用候補として登場する。
 // 部門 dept: "direct"（売上を作る）／"indirect"（会社を回す）。ポスト role: "manager"（責任者）／"member"（社員）。
 export const INITIAL_EMPLOYEES = [
-  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, dept: "direct", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastBoost: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
-  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, dept: "indirect", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastBoost: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null },
+  { id: "emp-1", name: "高嶺 澪", ability: 8, stamina: 5, ambition: 6, mental: 6, hp: 85, faith: 55, dept: "direct", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null, lastContrib: null, lastBurden: null, lastSupport: null, lastRiskCut: null },
+  { id: "emp-4", name: "森永 千鶴", ability: 5, stamina: 6, ambition: 3, mental: 7, hp: 90, faith: 60, dept: "indirect", role: "manager", expTier: "ベテラン", hiredMonth: 1, lastSales: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null, lastContrib: null, lastBurden: null, lastSupport: null, lastRiskCut: null },
 ];
 
 // 固有の採用候補（M14）：初期メンバー以外の3人は、候補として優先的に登場する

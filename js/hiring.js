@@ -94,7 +94,7 @@ export function hireCandidate(state, candId) {
     role: "member",
     expTier: cand.expTier,
     hiredMonth: month,
-    lastSales: null, lastBoost: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null,
+    lastSales: null, lastUplift: null, lastSaving: null, lastCost: null, lastProfit: null, lastSalary: null, lastOtherCost: null, lastContrib: null, lastBurden: null, lastSupport: null, lastRiskCut: null,
   };
   next.employees.push(hire);
   next.hireUsedMonth = month;
