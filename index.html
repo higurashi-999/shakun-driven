@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.34">
+<link rel="stylesheet" href="css/style.css?v=20261102.35">
 </head>
 <body>
 
@@ -49,6 +49,13 @@
   <p class="note">生成テストは候補モデルへ最小のリクエストを数回だけ送り、役割ごとに実際に生成できるモデルを確定します。キーを変えたらやり直してください。</p>
   <p id="test-result" class="note"></p>
   <p class="note">LLM呼び出し回数（累計）：<span id="call-count">0</span> 回</p>
+  <label class="field">
+    <span>効果音</span>
+    <select id="input-sound">
+      <option value="on">ON（効果音あり）</option>
+      <option value="off">OFF（無音）</option>
+    </select>
+  </label>
   <div class="row">
     <button id="btn-reset" class="danger">データを初期化</button>
     <button id="btn-back-from-settings" class="secondary">もどる</button>
@@ -298,6 +305,8 @@
   </div>
 </section>
 
-<script type="module" src="js/app.js?v=20261102.34"></script>
+<div id="phase-overlay" class="phase-overlay hidden"><div class="phase-overlay-inner"><span class="phase-overlay-sub">新たな期へ</span><span id="phase-overlay-name" class="phase-overlay-name">組織化期</span><span id="phase-overlay-bits" class="phase-overlay-bits"></span></div></div>
+
+<script type="module" src="js/app.js?v=20261102.35"></script>
 </body>
 </html>

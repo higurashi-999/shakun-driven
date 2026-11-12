@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.34";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.34";
+} from "./store.js?v=20261102.35";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.35";
 import {
 registerRule,
 abolishRule,
@@ -20,22 +20,61 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.34";
-import { extractRule} from "./extract.js?v=20261102.34";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.34";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.34";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.34";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.34";
-import { narrateMonth } from "./report.js?v=20261102.34";
+} from "./ledger.js?v=20261102.35";
+import { extractRule} from "./extract.js?v=20261102.35";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.35";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.35";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.35";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.35";
+import { narrateMonth } from "./report.js?v=20261102.35";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.34";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.34";
-import { portraitUri } from "./portraits.js?v=20261102.34";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.35";
+import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.35";
+import { portraitUri } from "./portraits.js?v=20261102.35";
+import { soundEnabled, setSoundEnabled, playClick, playPage, playStamp, playGood, playBad, playPhase, playPop } from "./sound.js?v=20261102.35";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
 let draft = null; // プレビュー中のレコード候補
 let lastPhaseSeen = null; // M17：フェーズアップ演出の判定用
+let lastFundsShown = null; // M20：資金カウントアップの開始値
+
+// M20：数字をカウントアップ／ダウンで見せる
+function animateNumber(el, from, to, fmt) {
+if (!el) return;
+if (from == null || from === to || typeof requestAnimationFrame !== "function") { el.textContent = fmt(to); return; }
+const dur = 700;
+const t0 = performance.now();
+if (el._raf) cancelAnimationFrame(el._raf);
+const step = (t) => {
+const p = Math.min(1, (t - t0) / dur);
+const e = 1 - Math.pow(1 - p, 3);
+el.textContent = fmt(from + (to - from) * e);
+if (p < 1) el._raf = requestAnimationFrame(step);
+};
+el._raf = requestAnimationFrame(step);
+}
+
+// M20：フェーズアップの全画面バナー（期名＋紙片）
+function showPhaseOverlay(name) {
+const ov = $("phase-overlay");
+if (!ov || !name) return;
+$("phase-overlay-name").textContent = name;
+const bits = $("phase-overlay-bits");
+bits.innerHTML = "";
+for (let i = 0; i < 16; i++) {
+const b = document.createElement("i");
+b.style.left = `${Math.random() * 100}%`;
+b.style.animationDelay = `${(Math.random() * 0.6).toFixed(2)}s`;
+b.style.background = i % 3 === 0 ? "var(--accent)" : i % 3 === 1 ? "var(--accent2)" : "#d9a441";
+bits.appendChild(b);
+}
+ov.classList.remove("hidden");
+ov.classList.remove("play");
+void ov.offsetWidth;
+ov.classList.add("play");
+setTimeout(() => ov.classList.add("hidden"), 2200);
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,6 +83,9 @@ document.body.dataset.mode = state && state.mode ? state.mode : "";
 for (const s of screens) {
 $(`screen-${s}`).classList.toggle("active", s === name);
 }
+// M20：画面遷移の入場アニメーション（クラスを付け直して毎回再生する）
+const targetScreen = $(`screen-${name}`);
+if (targetScreen) { targetScreen.classList.remove("enter"); void targetScreen.offsetWidth; targetScreen.classList.add("enter"); }
 if (name === "office") renderOffice();
 if (name === "settings") renderSettings();
 if (name === "editor") renderEditor();
@@ -269,10 +311,11 @@ migrateState();
 $("st-mode").textContent =
 state.mode === "black"? "ブラック": state.mode === "white"? "ホワイト": "-";
 $("st-phase").textContent = PHASE_NAMES[state.phase] || "創業期";
-if (lastPhaseSeen != null && state.phase > lastPhaseSeen) { const gp = $("goal-panel"); if (gp) { gp.classList.remove("phase-flash"); void gp.offsetWidth; gp.classList.add("phase-flash"); } }
+if (lastPhaseSeen != null && state.phase > lastPhaseSeen) { const gp = $("goal-panel"); if (gp) { gp.classList.remove("phase-flash"); void gp.offsetWidth; gp.classList.add("phase-flash"); } showPhaseOverlay(PHASE_NAMES[state.phase] || ""); playPhase(); }
 lastPhaseSeen = state.phase;
 const avgFaithNow = state.employees.length ? state.employees.reduce((a, e) => a + e.faith, 0) / state.employees.length : 0;
-$("st-funds").textContent = Math.round(state.funds).toLocaleString("ja-JP");
+animateNumber($("st-funds"), lastFundsShown, state.funds, (v) => Math.round(v).toLocaleString("ja-JP"));
+lastFundsShown = state.funds;
 $("funds-gauge-fill").style.width = `${Math.max(0, Math.min(100, (state.funds / 3500) * 100))}%`;
 $("funds-gauge-caption").textContent = state.loanDone
 ? "融資は完了しています"
@@ -340,9 +383,11 @@ const empList = $("emp-list");
 empList.innerHTML = "";
 const dangerOf = (e) => (e.hp <= 20 || e.faith <= 25) ? 2 : (e.hp <= 40 || e.faith <= 45) ? 1 : 0;
 const orderedEmps = [...state.employees].sort((a, b) => dangerOf(b) - dangerOf(a));
+let empCardIdx = 0;
 for (const e of orderedEmps) {
 const card = document.createElement("div");
-card.className = "card";
+card.className = "card pop-in";
+card.style.animationDelay = `${Math.min(empCardIdx++, 8) * 60}ms`;
 const head = document.createElement("div");
 head.className = "emp-head";
 const pimg = portraitImgEl(e, exprOf(e), "emp-portrait");
@@ -535,6 +580,7 @@ return "";
 
 function onAdvance() {
 if (!requireState() || state.status!== "playing") return;
+playPage();
 if (state.currentEvent) { show("event"); return; } // 対応中のイベントがある月は、まず対応に戻る
 migrateState();
 const processedMonth = state.month;
@@ -663,6 +709,8 @@ const res = resolveEvent(state, ev, action, effectsMap(), aiJudge);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
 refreshSummary();
+if (res.grade === "成功" || res.grade === "部分成功") playGood();
+else if (res.grade === "失敗") playBad();
 if (state.currentEvent && state.currentEvent.milestone === "shareholders") state.afterEvent = "listing";
 state.currentEvent = null;
 saveState(state);
@@ -725,6 +773,7 @@ const res = judgeLoan(state, effectsMap());
 state = res.state;
 state.lastReport = [...(state.lastReport || []), ...res.lines];
 refreshSummary();
+if (state.loanResult && state.loanResult.amount > 0) playGood(); else playBad();
 saveState(state);
 $("loan-result").textContent = res.lines.join("\n");
 if (state.loanResult) renderLoanDetail(state.loanResult);
@@ -807,6 +856,7 @@ const res = judgeListing(state);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), res.result.passed ? "🎉 上場審査に合格しました。" : "📋 上場審査は不合格でした。"];
 refreshSummary();
+if (res.result.passed) playPhase(); else playBad();
 saveState(state);
 renderListing();
 }
@@ -827,9 +877,11 @@ $("hire-note").textContent = full
 const box = $("hire-list");
 box.innerHTML = "";
 const dots5 = (v) => { const f = Math.min(5, Math.max(0, Math.ceil(v / 2))); return "●".repeat(f) + "○".repeat(5 - f); };
+let candIdx = 0;
 for (const c of list) {
 const card = document.createElement("div");
-card.className = "card";
+card.className = "card pop-in";
+card.style.animationDelay = `${candIdx++ * 70}ms`;
 const head = document.createElement("div");
 head.className = "emp-head";
 const pimg = portraitImgEl(c.named ? { id: c.id } : { name: c.name }, "normal", "emp-portrait");
@@ -870,6 +922,7 @@ function onHire(candId) {
 const r = hireCandidate(state, candId);
 if (!r.hired) { $("hire-note").textContent = r.reason || "採用できませんでした。"; return; }
 state = r.state;
+playGood();
 saveState(state);
 show("office");
 }
@@ -982,6 +1035,7 @@ const emp = state.employees.find((e) => e.id === session.empId);
 if (!emp) return;
 const text = $("iv-response").value.trim();
 if (!text) return;
+playPop();
 ivBusy = true;
 setIvBusy(true);
 $("iv-response").value = "";
@@ -1078,6 +1132,8 @@ function renderSettings() {
 $("input-apikey").value = getApiKey();
 $("call-count").textContent = String(getCallCount());
 $("test-result").textContent = "";
+const soundSel = $("input-sound");
+if (soundSel) soundSel.value = soundEnabled() ? "on" : "off";
 }
 
 /* ---------- 社長命令エディタ ---------- */
@@ -1157,6 +1213,7 @@ if (state.lastSwapMonth === state.month) { $("ed-status").textContent = "今月�
 isSwap = true;
 }
 const entry = registerRule(state, draft);
+playStamp();
 if (isSwap) {
 state.lastSwapMonth = state.month;
 for (const e of state.employees) e.faith = Math.max(0, e.faith - 3);
@@ -1333,6 +1390,9 @@ $("btn-hire").addEventListener("click", () => show("hire"));
 $("btn-hire-back").addEventListener("click", () => show("office"));
 $("btn-loan-back").addEventListener("click", () => show("office"));
 $("btn-ev-back").addEventListener("click", () => show("office"));
+// M20：効果音の設定と、ボタン共通のクリック音
+$("input-sound").addEventListener("change", (ev) => { setSoundEnabled(ev.target.value === "on"); if (ev.target.value === "on") playClick(); });
+if (typeof document.addEventListener === "function") document.addEventListener("click", (ev) => { if (ev.target && typeof ev.target.closest === "function" && ev.target.closest("button")) playClick(); });
 $("btn-loan-apply").addEventListener("click", onLoanApply);
 $("btn-loan-done").addEventListener("click", () => {
 if (state && state.status!== "playing") show("result");

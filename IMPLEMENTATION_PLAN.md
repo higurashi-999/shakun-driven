@@ -356,3 +356,9 @@ index.html / css / js/
 - app.js／index.html／CSS：素材ログの details＋pre を廃止し、「今月の記録」パネル（record-grid／record-phase／record-ranks／record-events）を新設。出来事リストは機械的な集計行を除外して描き、HTMLエスケープを通す
 - テスト：report.test に validateNarration と切れた本音のケース、sim.test に lastSummary の検証を追加。全チェック通過
 - M19.1：実サイト確認で、記録パネルの資金・評判・平均値がイベント適用前の値になる食い違いを発見。app.js に refreshSummary を追加し、イベント解決・融資審査・上場審査の直後に lastSummary の変動項目（資金・評判・平均信仰・平均体力）を現在値へ更新する
+
+## 第23節：M20（2026-11-12）
+- js/sound.js を新設：WebAudio合成の効果音（tone/noise の小さなシンセ）。AudioContextは初回操作時に生成し、未対応環境では無音で素通りする。ON/OFFは localStorage（shakun-driven-sound）に保存し、設定画面のセレクトで切替
+- app.js：show() で対象画面に enter クラスを付け直して遷移アニメーションを再生。animateNumber で資金をカウントアップ（前回表示値から）。社員・候補カードに pop-in＋遅延。フェーズアップで showPhaseOverlay（期名バナー＋紙片16枚）＋ファンファーレ。各アクションに効果音を配線（月送り＝紙、社訓登録＝判子、イベント成功系＝上昇音・失敗＝下降音、融資可否、採用、1on1送信＝ポップ、全ボタン共通クリック音は document 委譲で、テストスタブに配慮してガード付き）
+- CSS：screenIn／popIn／bubbleIn／breathe／bitFall／overlayText のキーフレーム、ゲージと進捗バーの transition、ボタンのホバー／押下、フェーズオーバーレイ一式、prefers-reduced-motion 対応
+- 検証：scripts/check.sh 全通過（ESLint globals に requestAnimationFrame 等のブラウザAPIを追加）
