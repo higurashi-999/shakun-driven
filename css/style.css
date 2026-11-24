@@ -403,3 +403,31 @@ button:active { transform: translateY(1px) scale(.97); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Ver. 1.6：タイトル演出・場面イラスト・キャラ絵強化 */
+/* タイトル絵：包み（光の帯と影は包み側に持たせる） */
+.title-art-wrap { position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 4px 18px rgba(35, 32, 26, .18); }
+body[data-mode="black"] .title-art-wrap { box-shadow: 0 4px 18px rgba(0, 0, 0, .5); }
+#title-art { box-shadow: none; border-radius: 0; display: block; }
+#screen-title.enter #title-art { animation: titleArtIn 1.5s ease both; }
+@keyframes titleArtIn { from { transform: scale(1.07); opacity: .35; } to { transform: scale(1); opacity: 1; } }
+.title-art-wrap::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,.32) 50%, transparent 58%); transform: translateX(-130%); pointer-events: none; }
+#screen-title.enter .title-art-wrap::after { animation: titleShine 1.1s ease .8s 1 both; }
+@keyframes titleShine { to { transform: translateX(130%); } }
+#screen-title.enter .menu > button, #screen-title.enter .menu-single > button, #screen-title.enter .footnote { animation: popIn .45s ease both; }
+#screen-title.enter .menu > button:nth-child(1) { animation-delay: .2s; }
+#screen-title.enter .menu > button:nth-child(2) { animation-delay: .32s; }
+#screen-title.enter .menu-single > button { animation-delay: .44s; }
+#screen-title.enter .footnote { animation-delay: .56s; }
+/* 場面イラスト */
+.scene-art { width: 100%; display: block; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.ev-art { height: 190px; margin: 10px 0 4px; }
+.report-art { height: 130px; margin: 10px 0 2px; }
+.scene-art:not(.hidden) { animation: artIn .6s ease both; }
+@keyframes artIn { from { opacity: 0; transform: scale(1.045); } to { opacity: 1; transform: none; } }
+/* キャラ絵：大きく＋表情切替のポップ */
+.emp-portrait { width: 72px; height: 90px; }
+.iv-portrait { width: 100px; height: 125px; }
+@keyframes exprIn { from { transform: scale(.93); opacity: .5; } to { transform: scale(1); opacity: 1; } }
+.emp-portrait, .iv-portrait { animation: breathe 4.2s ease-in-out infinite, exprIn .35s ease backwards; }
+.iv-portrait.expr-pop { animation: exprIn .35s ease; }

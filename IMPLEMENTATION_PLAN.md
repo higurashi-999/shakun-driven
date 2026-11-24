@@ -365,3 +365,9 @@ index.html / css / js/
 
 ## 第24節：Ver. 1.5（2026-11-24）
 - バージョン表記を Ver. 形式に統一（SPEC「バージョン表記ルール」参照）。タイトル画面の脚注から「M16」表記と SPEC 参照を外し、「本編（全24か月・4フェーズ・上場審査まで） Ver. 1.5」とした。画面内のバージョン表示はこの1か所のみ
+
+## 第25節：Ver. 1.6（2026-11-24）
+- タイトル絵：app.js の setTitleArt 一式（セーブ連動の差し替え＋モードボタンの mouseenter/focus プレビュー＋もどる時の復元）を撤去し、TITLE_ART 固定にした。TITLE_ART_BLACK は assets.js に残置（未使用）
+- 場面イラスト：js/sceneart.js を新設（SCENE_ART = {white, black} × 10キー）。生成は design/scenes/make_sceneart_js.py（中央クロップ4:3→720×540→WebP q80）。app.js に CATEGORY_ART 対応表と sceneArtUri() を追加し、renderEvent でカテゴリ絵を #ev-art に、renderOffice で月報絵を #report-art に表示
+- 演出：showPhaseOverlay(name, sub) に小見出し引数を追加し、上場合格時に「株式上場／審査合格」で再利用。タイトル画面は .title-art-wrap（影と光の帯）＋ #screen-title.enter 配下の順次出現。キャラ絵はサイズ拡大と exprIn（1on1は src 変化を検知して expr-pop クラスで再生）
+- CSS：Ver. 1.6ブロックに titleArtIn／titleShine／artIn／exprIn と .scene-art 等を追加

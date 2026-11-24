@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>社訓ドリブン</title>
-<link rel="stylesheet" href="css/style.css?v=20261102.36">
+<link rel="stylesheet" href="css/style.css?v=20261102.37">
 </head>
 <body>
 
@@ -12,7 +12,7 @@
 <section id="screen-title" class="screen active">
   <div class="title-block">
     <h1 class="sr-only">社訓ドリブン</h1>
-    <img id="title-art" alt="社訓ドリブン ― 屋上の朝礼と日の出">
+    <div class="title-art-wrap"><img id="title-art" alt="社訓ドリブン ― 屋上の朝礼と日の出"></div>
   </div>
   <div class="menu" id="menu-main">
     <button id="btn-new" class="primary">はじめから</button>
@@ -28,7 +28,7 @@
   <div class="menu-single">
     <button id="btn-settings" class="secondary">設定（APIキー）</button>
   </div>
-  <p class="footnote">本編（全24か月・4フェーズ・上場審査まで） Ver. 1.5</p>
+  <p class="footnote">本編（全24か月・4フェーズ・上場審査まで） Ver. 1.6</p>
 </section>
 
 <!-- 設定画面 -->
@@ -111,6 +111,7 @@
     <p id="office-note" class="note"></p>
     <h3>月報</h3>
     <div id="report-masthead" class="report-masthead hidden"></div>
+    <img id="report-art" class="scene-art report-art hidden" alt="">
     <div id="report-highlights" class="report-highlights hidden"></div>
     <p id="report-diff" class="report-diff hidden"></p>
     <pre id="week-report" class="preview">まだ月を進めていません。社訓を整えてから「月を進める」を押してください。</pre>
@@ -186,6 +187,7 @@
   <h2 id="ev-title">イベント</h2>
   <p id="ev-hype" class="ev-hype hidden"></p>
   <p id="ev-category" class="note"></p>
+  <img id="ev-art" class="scene-art ev-art hidden" alt="">
   <p id="ev-body"></p>
   <p id="ev-hint" class="note"></p>
   <div id="ev-action-wrap">
@@ -305,8 +307,8 @@
   </div>
 </section>
 
-<div id="phase-overlay" class="phase-overlay hidden"><div class="phase-overlay-inner"><span class="phase-overlay-sub">新たな期へ</span><span id="phase-overlay-name" class="phase-overlay-name">組織化期</span><span id="phase-overlay-bits" class="phase-overlay-bits"></span></div></div>
+<div id="phase-overlay" class="phase-overlay hidden"><div class="phase-overlay-inner"><span id="phase-overlay-sub" class="phase-overlay-sub">新たな期へ</span><span id="phase-overlay-name" class="phase-overlay-name">組織化期</span><span id="phase-overlay-bits" class="phase-overlay-bits"></span></div></div>
 
-<script type="module" src="js/app.js?v=20261102.36"></script>
+<script type="module" src="js/app.js?v=20261102.37"></script>
 </body>
 </html>

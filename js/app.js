@@ -7,8 +7,8 @@ resetAll,
 getApiKey,
 setApiKey,
 getCallCount,
-} from "./store.js?v=20261102.35";
-import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.35";
+} from "./store.js?v=20261102.37";
+import { testConnection, probeModels, callLLM } from "./llm.js?v=20261102.37";
 import {
 registerRule,
 abolishRule,
@@ -20,18 +20,19 @@ effectsText,
 AXIS_LABEL,
 budgetForLength,
 previewText,
-} from "./ledger.js?v=20261102.35";
-import { extractRule} from "./extract.js?v=20261102.35";
-import { initialEmployees, getCharacter } from "./employees.js?v=20261102.35";
-import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.35";
-import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.35";
-import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.35";
-import { narrateMonth } from "./report.js?v=20261102.35";
+} from "./ledger.js?v=20261102.37";
+import { extractRule} from "./extract.js?v=20261102.37";
+import { initialEmployees, getCharacter } from "./employees.js?v=20261102.37";
+import { simulateMonth, summarize, salaryOf, PARAMS, deptSummary, phaseOf, idealOf, maxOf, TOTAL_MONTHS, managerSlots } from "./sim.js?v=20261102.37";
+import { ensureCandidates, hireCandidate } from "./hiring.js?v=20261102.37";
+import { drawEventId, getEvent, resolveEvent, buildEventJudgePrompt, parseEventJudgeResult } from "./events.js?v=20261102.37";
+import { narrateMonth } from "./report.js?v=20261102.37";
 
-import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.35";
-import { TITLE_ART, TITLE_ART_BLACK } from "./assets.js?v=20261102.35";
-import { portraitUri } from "./portraits.js?v=20261102.35";
-import { soundEnabled, setSoundEnabled, playClick, playPage, playStamp, playGood, playBad, playPhase, playPop } from "./sound.js?v=20261102.35";
+import { judgeLoan, judgeListing, evaluateRun, rankOf, oneOnOneInitialPoints, clampPointDelta, judgeOneOnOne, buildOneOnOnePrompt, parseOneOnOneReply, ONE_ON_ONE_MAX_TURNS, ONE_ON_ONE_FALLBACKS } from "./scenes.js?v=20261102.37";
+import { TITLE_ART } from "./assets.js?v=20261102.37";
+import { SCENE_ART } from "./sceneart.js?v=20261102.37";
+import { portraitUri } from "./portraits.js?v=20261102.37";
+import { soundEnabled, setSoundEnabled, playClick, playPage, playStamp, playGood, playBad, playPhase, playPop } from "./sound.js?v=20261102.37";
 
 const screens = ["title", "settings", "office", "editor", "ledger", "result", "event", "loan", "interview", "hire", "listing"];
 let state = loadState();
@@ -55,10 +56,18 @@ if (p < 1) el._raf = requestAnimationFrame(step);
 el._raf = requestAnimationFrame(step);
 }
 
-// M20：フェーズアップの全画面バナー（期名＋紙片）
-function showPhaseOverlay(name) {
+// Ver. 1.6：場面イラストのカテゴリ対応
+const CATEGORY_ART = { "市場・経済": "market", "取引先": "partner", "人材市場": "talent", "法改正・規制": "legal", "社内事故・不祥事": "incident", "システム・災害": "system", "メディア・評判": "media", "ステークホルダー": "stakeholder", "山場": "milestone" };
+function sceneArtUri(key) {
+const set = SCENE_ART[state && state.mode === "black" ? "black" : "white"] || {};
+return key ? set[key] || null : null;
+}
+
+// M20：フェーズアップの全画面バナー（期名＋紙片）。Ver. 1.6で小見出しも差し替え可能にした
+function showPhaseOverlay(name, sub) {
 const ov = $("phase-overlay");
 if (!ov || !name) return;
+$("phase-overlay-sub").textContent = sub || "新たな期へ";
 $("phase-overlay-name").textContent = name;
 const bits = $("phase-overlay-bits");
 bits.innerHTML = "";
@@ -530,6 +539,9 @@ $("week-report").textContent = "まだ月を進めていません。社訓を整
 }
 renderRecord();
 const hasReport = !!(state.reportText || state.lastReport);
+const repArt = $("report-art");
+const repArtUri = hasReport ? sceneArtUri("report") : null;
+if (repArtUri) { repArt.src = repArtUri; repArt.classList.remove("hidden"); } else repArt.classList.add("hidden");
 $("report-masthead").classList.toggle("hidden", !hasReport);
 if (hasReport) $("report-masthead").textContent = `社内報 第${Math.max(1, state.month - 1)}号 ― 第${Math.max(1, state.month - 1)}月の月報`;
 const honneEl = $("report-honne");
@@ -681,6 +693,9 @@ $("ev-title").textContent = ev.title;
 $("ev-hype").textContent = ev.hype || "";
 $("ev-hype").classList.toggle("hidden", !ev.hype);
 $("ev-category").textContent = `カテゴリ：${ev.category}`;
+const evArt = $("ev-art");
+const evArtUri = sceneArtUri(CATEGORY_ART[ev.category]);
+if (evArtUri) { evArt.src = evArtUri; evArt.classList.remove("hidden"); } else evArt.classList.add("hidden");
 $("ev-body").textContent = ev.body;
 $("ev-hint").textContent = `関係する効果：${(ev.goodAxes || []).map((k) => AXIS_LABEL[k]).join("・") || "―"} が高いと有利${(ev.badAxes || []).length ? `、${(ev.badAxes || []).map((k) => AXIS_LABEL[k]).join("・")} が高いと裏目に出やすい` : ""}`;
 $("ev-response").value = "";
@@ -856,7 +871,7 @@ const res = judgeListing(state);
 state = res.state;
 state.lastReport = [...(state.lastReport || []), res.result.passed ? "🎉 上場審査に合格しました。" : "📋 上場審査は不合格でした。"];
 refreshSummary();
-if (res.result.passed) playPhase(); else playBad();
+if (res.result.passed) { playPhase(); showPhaseOverlay("株式上場", "審査合格"); } else playBad();
 saveState(state);
 renderListing();
 }
@@ -966,7 +981,7 @@ return;
 }
 const emp = state.employees.find((e) => e.id === session.empId);
 $("iv-who").textContent = emp ? `${emp.name} との1on1` : "";
-{ const ivp = $("iv-portrait"); if (ivp) { const lastEmp = [...session.log].reverse().find((h) => h.who === "emp"); const uri = emp ? portraitUri(emp, state.mode, (lastEmp && lastEmp.expr) || exprOf(emp)) : null; ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); } }
+{ const ivp = $("iv-portrait"); if (ivp) { const lastEmp = [...session.log].reverse().find((h) => h.who === "emp"); const uri = emp ? portraitUri(emp, state.mode, (lastEmp && lastEmp.expr) || exprOf(emp)) : null; const changed = ivp.src !== (uri || ""); ivp.src = uri || ""; ivp.classList.toggle("hidden", !uri); if (uri && changed) { ivp.classList.remove("expr-pop"); void ivp.offsetWidth; ivp.classList.add("expr-pop"); setTimeout(() => ivp.classList.remove("expr-pop"), 400); } } }
 if (emp) {
 const f5 = Math.min(5, Math.max(0, Math.ceil(emp.ability / 2)));
 $("iv-emp-info").textContent = `能力 ${"●".repeat(f5)}${"○".repeat(5 - f5)}（5段階）／経験区分：${emp.expTier || "中堅"}／${emp.lastProfit != null ? `先月の純額 ${emp.lastProfit >= 0 ? "+" : ""}${Math.round(emp.lastProfit)}万円（会社貢献 ${Math.round(contribOf(emp))}万円［${(emp.dept || "direct") === "direct" ? `売上 ${Math.round(emp.lastSales)}` : `直接部門貢献 ${Math.round(emp.lastUplift || 0)}＋コストダウン ${Math.round(emp.lastSaving)}`}］／会社負担 ${Math.round(burdenOf(emp))}万円［人件費 ${Math.round(emp.lastSalary ?? salaryOf(emp, state.month))}＋1人あたり固定費 ${Math.round(emp.lastOtherCost ?? 0)}］）` : "先月の純額 ―"}`;
@@ -1425,18 +1440,8 @@ $("ed-text").addEventListener("input", updateCharCount);
 $("btn-register").addEventListener("click", onRegister);
 
 
-const savedMode = state && state.mode ? state.mode : null;
-const setTitleArt = (m) => {
-$("title-art").src = m === "black" ? TITLE_ART_BLACK : TITLE_ART;
-$("title-art").alt = m === "black" ? "社訓ドリブン ― 深夜のビル" : "社訓ドリブン ― 屋上の朝礼と日の出";
-};
-setTitleArt(savedMode);
-document.querySelectorAll(".mode-btn").forEach((b) => {
-const preview = () => setTitleArt(b.dataset.mode);
-b.addEventListener("mouseenter", preview);
-b.addEventListener("focus", preview);
-});
-$("btn-mode-back").addEventListener("click", () => setTitleArt(savedMode));
+// Ver. 1.6：タイトル絵はモード共通（朝礼）で固定する。画面の色味だけがモードに連動する
+$("title-art").src = TITLE_ART;
 injectIcons();
 show("title");
 $("btn-guide-close").addEventListener("click", () => {
