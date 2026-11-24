@@ -362,3 +362,6 @@ index.html / css / js/
 - app.js：show() で対象画面に enter クラスを付け直して遷移アニメーションを再生。animateNumber で資金をカウントアップ（前回表示値から）。社員・候補カードに pop-in＋遅延。フェーズアップで showPhaseOverlay（期名バナー＋紙片16枚）＋ファンファーレ。各アクションに効果音を配線（月送り＝紙、社訓登録＝判子、イベント成功系＝上昇音・失敗＝下降音、融資可否、採用、1on1送信＝ポップ、全ボタン共通クリック音は document 委譲で、テストスタブに配慮してガード付き）
 - CSS：screenIn／popIn／bubbleIn／breathe／bitFall／overlayText のキーフレーム、ゲージと進捗バーの transition、ボタンのホバー／押下、フェーズオーバーレイ一式、prefers-reduced-motion 対応
 - 検証：scripts/check.sh 全通過（ESLint globals に requestAnimationFrame 等のブラウザAPIを追加）
+
+## 第24節：Ver. 1.5（2026-11-24）
+- バージョン表記を Ver. 形式に統一（SPEC「バージョン表記ルール」参照）。タイトル画面の脚注から「M16」表記と SPEC 参照を外し、「本編（全24か月・4フェーズ・上場審査まで） Ver. 1.5」とした。画面内のバージョン表示はこの1か所のみ
