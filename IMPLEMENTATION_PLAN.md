@@ -371,3 +371,8 @@ index.html / css / js/
 - 場面イラスト：js/sceneart.js を新設（SCENE_ART = {white, black} × 10キー）。生成は design/scenes/make_sceneart_js.py（中央クロップ4:3→720×540→WebP q80）。app.js に CATEGORY_ART 対応表と sceneArtUri() を追加し、renderEvent でカテゴリ絵を #ev-art に、renderOffice で月報絵を #report-art に表示
 - 演出：showPhaseOverlay(name, sub) に小見出し引数を追加し、上場合格時に「株式上場／審査合格」で再利用。タイトル画面は .title-art-wrap（影と光の帯）＋ #screen-title.enter 配下の順次出現。キャラ絵はサイズ拡大と exprIn（1on1は src 変化を検知して expr-pop クラスで再生）
 - CSS：Ver. 1.6ブロックに titleArtIn／titleShine／artIn／exprIn と .scene-art 等を追加
+
+## 第26節：Ver. 1.7（2026-11-25）
+- howto.html を新規作成：紹介専用のポップなデザイン（css/howto.css を分離）。本文は固定HTMLで書き、画像だけを小さな module スクリプトで js/assets.js（TITLE_ART）／js/sceneart.js（SCENE_ART）／js/portraits.js（PORTRAITS）から import して img の src に設定する。新規画像ファイルは作らない
+- 登場人物カードの名前・部門・肩書き・一言紹介は js/employees.js の正典データ（INITIAL_EMPLOYEES／CANDIDATE_CHARACTERS／CHARACTERS の公開 profile）に基づく。裏設定（hidden）には触れない
+- index.html：設定ボタンの下に .menu-single の「遊び方」リンク（a.btn-link）を追加し、css/style.css に Ver. 1.7 ブロック（ボタンの見た目とタイトル画面の出現アニメーションへの組み込み）を追加。脚注を Ver. 1.7 に更新し、キャッシュ回避クエリを 20261102.38 に上げた
